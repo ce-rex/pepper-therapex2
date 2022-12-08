@@ -1,0 +1,4 @@
+#.idea/
+pepper_tablet/app/html/.idea/
+*.pyc
+data_log/

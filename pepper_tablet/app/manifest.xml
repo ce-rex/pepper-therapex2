@@ -1,0 +1,93 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<package version="0.0.1" uuid="pepper_tablet">
+ <names>
+  <name lang="en_US">pepper_tablet</name>
+  <name lang="fr_FR">servicedriven</name>
+ </names>
+ <supportedLanguages>
+  <language>en_US</language>
+ </supportedLanguages>
+ <descriptionLanguages>
+  <language>en_US</language>
+ </descriptionLanguages>
+ <contents>
+  <behaviorContent path=".">
+   <userRequestable/>
+   <nature>interactive</nature>
+   <names>
+    <name lang="en_US">helenapack</name>
+   </names>
+   <descriptions>
+    <description lang="en_US">Shows a page on the tablet</description>
+   </descriptions>
+   <triggerSentences>
+    <sentence lang="en_US">simple tablet page</sentence>
+    <sentence lang="fr_FR">Lance servicedriven</sentence>
+   </triggerSentences>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="resting">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="start_screen">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="goodbye">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="calibration">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex1_zen">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex2_rolling">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex3_serve">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex4_wave">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex5_chicken">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex6_darja">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex7_punch_front">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex8_punch_top">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex9_punch_all1">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="ex9_punch_all2">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+ </contents>
+ <requirements>
+  <naoqiRequirement minVersion="2.3"/>
+  <robotRequirement/>
+ </requirements>
+ <services>
+  <service autorun="false" execStart="/usr/bin/python2 services/appservice.py" name="AppService"/>
+ </services>
+</package>
