@@ -2,8 +2,8 @@ import os
 import socket
 import time
 import json
-import select
 from threading import Thread
+from exercise_manager import ExerciseManager
 
 # import tkinter as tk
 # from PIL import ImageTk, Image
@@ -15,47 +15,71 @@ port = 5005
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((ip, port))
 
-sensor = PulseSensor(filepath="data_log/" + session_timestamp + "arduino_log.csv")
+exercise_manager = ExerciseManager()
 
 print("I'm running from /home/pi/.config/autostart/pepper_therapex_study.desktop")
 
+
 # run udp-server
-def udp_rec():
+def udp_rec(ex_man):
     timeout = 5
     ready = True
     test_data = [[63, 435, 62, 64], [61, 378, 62, 63]]
+    headers = ['time', 'BPM', 'pulse_data', 'resting_BPM', 'exercise_intensity']
+    data_saver = None
+    session_num = 1
+
     counter = 0
-    
+
     print("starting to listen")
     while True:
         try:
             # ready = select.select([sock], [], [], timeout)
             if ready:
                 msg, source_address = sock.recvfrom(1024)
-                #print(msg)
-                #print(source_address)
+                # print(msg)
+                # print(source_address)
                 # what data does the client send/need?
+
                 if msg == b'newsession':
                     # create new recording file
+                    exercise_manager.start_new_session()
                     print(msg)
-                
-                if msg == b'data':
+
+                elif msg == b'data':
                     print(msg)
                     # reply with bpm, pulse, resting_bpm, last20_bpm?
-                    counter = counter % 2
+                    exercise_manager.update_data()
                     response = json.dumps(test_data[counter])
                     print(response)
                     sock.sendto(response.encode(), source_address)
-                    counter += 1
-                    
-                if msg == b'calibration':
-                    print(msg)
-                    # reply with bpm, pulse, resting_bpm, last20_bpm?
-                    counter = counter % 2
-                    response = json.dumps(test_data[counter])
-                    print(response)
+
+                elif msg == b'calibration':
+                    exercise_manager.start_calibration()
+
+                    response = "started calibration process!"
                     sock.sendto(response.encode(), source_address)
-                    counter += 1
+
+                elif msg == b'exercise':
+                    response = exercise_manager.get_exercise_intensity()
+                    sock.sendto(response.encode(), source_address)
+
+                elif msg == b'start':
+                    # save session
+                    exercise_manager.start_new_experiment_cycle()
+
+                    response = "started exercise cycle!"
+                    sock.sendto(response.encode(), source_address)
+
+                elif msg == b'done':
+                    # save session
+                    exercise_manager.save_session_data()
+
+                    response = "stopped exercise cycle!"
+                    sock.sendto(response.encode(), source_address)
+
+                else:
+                    print("unknown request")
                 # print("received message:", data, "from:", addr)
 
                 # # set max slides and wav
@@ -85,7 +109,7 @@ def udp_rec():
                 #     print(jpg_number)
                 #     show_slide(int(jpg_number))
 
-                    # run slides
+                # run slides
                 # if data == b"next_slide":
                 #    current_slide = current_slide +1
                 #    show_slide(current_slide)
@@ -117,8 +141,8 @@ def udp_rec():
                 #    current_wav_loop = 1
                 #    thread_play_sound = Thread(target=play_sound, args=[current_wav_loop])
                 #    thread_play_sound.start()
-                
-            
+
+
 
         except:
             print("something went wrong")
@@ -131,7 +155,7 @@ def udp_rec():
         # time.sleep(0.1)
 
 
-thread_upd_rec = Thread(target=udp_rec)
+thread_upd_rec = Thread(target=udp_rec, args=(exercise_manager,))
 thread_upd_rec.start()
 
 # # ability to exit

@@ -2,16 +2,16 @@ import serial
 from sys import platform
 import numpy as np
 import time
-from data_saving import DataSaver
+# from data_saving import DataSaver
 
 ''''' IMPORTS PULSE DATA FROM ARDUINO '''''
 
 
 class PulseSensor:
-    def __init__(self, filepath):
+    def __init__(self):
         # keep track of all values (valid and invalid ones)
         self.data_log = np.empty(shape=[0, 3])
-        self.data_saver = DataSaver(filepath, ["timestamp", "BPM", "pulse_data"])
+        # self.data_saver = DataSaver(filepath, ["timestamp", "BPM", "pulse_data"])
 
         # check current operating system and connect to arduino serial
         if platform == "darwin":  # Mac
@@ -40,7 +40,7 @@ class PulseSensor:
                 # print([bpm, pulse_signal])
 
                 # add new data to log
-                self.data_log = np.append(self.data_log, [[timestamp, bpm, pulse_signal]], axis=0)
+                # self.data_log = np.append(self.data_log, [[timestamp, bpm, pulse_signal]], axis=0)
 
                 return [timestamp, bpm, pulse_signal]
             except Exception as e:
@@ -53,5 +53,5 @@ class PulseSensor:
     def close_connection(self):
         # close serial connection
         self.arduino.close()
-        self.data_saver.save_datalog_array(self.data_log)
+        # self.data_saver.save_datalog_array(self.data_log)
 
