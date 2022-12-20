@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8" ?><ChoregrapheProject xmlns="http://www.aldebaran-robotics.com/schema/choregraphe/project.xsd" xar_version="3"><Box name="root" id="-1" localization="8" tooltip="Root box of Choregraphe&apos;s behavior. Highest level possible." x="0" y="0"><bitmap>media/images/box/root.png</bitmap><script language="4"><content><![CDATA[]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /><Timeline enable="0"><BehaviorLayer name="behavior_layer1"><BehaviorKeyframe name="keyframe1" index="1"><Diagram scale="84.0896"><Box name="exercise manager" id="12" localization="8" tooltip="" x="149" y="42"><bitmap>media/images/box/box-python-script.png</bitmap><script language="4"><content><![CDATA[import threading
+import socket
+import json
+import numpy as np
+
+class MyClass(GeneratedClass):
+    def __init__(self):
+        GeneratedClass.__init__(self)
+        self.manager = None
+
+    def onLoad(self):
+        #put initialization code here
+        pass
+
+    def onUnload(self):
+        #put clean-up code here
+        pass
+
+    def onInput_onStart(self):
+        self.manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=True)
+
+        self.logger.info("waiting for touch")
+        while self.manager.robot.waiting_for_touch:
+            time.sleep(1)
+        self.logger.info("touched!")
+        self.thread_monitoring_resume = threading.Event()
+        self.thread_monitoring = threading.Thread(target=self.run_data_update)
+        self.thread_monitoring.start()
+        self.thread_monitoring_resume.set()
+        # self.manager.robot.play_song("/songs/blindinglights.wav")
+        # time.sleep(5)
+        # self.manager.stop_everything()
+        # self.manager.update_data()
+
+        self.onStopped() #activate the output of the box
+
+    def onInput_onStop(self):
+        self.onUnload() #it is recommended to reuse the clean-up as the box is stopped
+        self.onStopped() #activate the output of the box
+
+    def run_data_update(self, duration=5):
+        start = time.time()
+        self.logger.info("hi")
+        while time.time() - start < duration:
+            #self.logger.info("hi" + str(time.time() - start))
+            self.thread_monitoring_resume.wait()
+            self.manager.update_data()
+
+        self.logger.info("hi2")
+
+
+class ExerciseManager():
+    def __init__(self, session, logger, behaviorAbsolutePath, virtual):
+        self.logger = logger
+        self.test = "asdga"
+        self.robot = Pepper(session, logger, behaviorAbsolutePath, virtual)
+        self.data_client = DataClient(logger, behaviorAbsolutePath, virtual, port=5006)
+        self.playlist = ["/songs/blindinglights.wav", "/songs/feel_it_still.wav"]
+
+        self.last_bpm = 0
+        self.last20_bpm = np.arange(-20, 0)
+        self.last20_bpm_variance = 100  # some number greater than 1
+
+        self.current_intensity = 1
+        self.exercise_idx = 0
+
+    def call(self):
+        print("hellooooooooooooo" + self.test)
+        self.robot.cute_eyes()
+
+    def update_data(self):
+        # get new sensor data
+        bpm, pulse_signal = self.data_client.call_for_data()
+
+        if (not bpm == 0) or (not pulse_signal == 0):
+            self.logger.info("BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse_signal))
+
+            self.current_intensity = np.nan  # some random number
+
+            # update tablet
+            if pulse_signal != 0 or pulse_signal >= 680:
+                self.robot.update_pulsewave(pulse_signal)
+
+            if self.last_bpm != bpm:
+                # update tablet
+                self.robot.update_bpm(bpm)
+
+                # update bpm tracker
+                self.last20_bpm = np.append(self.last20_bpm, [bpm])
+                self.last20_bpm = self.last20_bpm[1:]
+                self.last20_bpm_variance = self.last20_bpm.var()
+                self.logger.info(self.last20_bpm)
+
+                self.last_bpm = bpm
+
+    def stop_everything(self):
+        # stop robot
+        self.robot.stop_song()
+        if not self.robot.is_virtual:
+            self.robot.cute_eyes()
+            if self.robot.basic_awareness_on:
+                self.robot.awareness_off()
+
+            self.robot.tablet.hideWebview()
+            #self.robot.tablet.hideImage()
+            time.sleep(1)
+            #self.robot.tablet.showImage(self.robot.image_path)
+        self.logger.info("success")
+        self.robot.stand()
+
+
+class Pepper():
+    def __init__(self, session, logger, behaviorAbsolutePath, virtual):
+        self.behaviorAbsolutePath = behaviorAbsolutePath
+        self.show_boundaries = True
+        self.basic_awareness_on = False
+        self.waiting_for_touch = True
+        self.is_virtual = virtual
+
+        appName = ".lastUploadedChoregrapheBehavior"
+        #appName = "pepper_tablet"
+        self.image_path = "http://198.18.0.1/apps/" + appName + "/start_training_kleiner.png"
+
+        # -- proxies
+        self.logger = logger
+        if not self.is_virtual:
+            self.tablet = session.service("ALTabletService")
+            self.leds = ALProxy("ALLeds")
+            self.autonomous_life = ALProxy("ALAutonomousLife")
+            if self.basic_awareness_on:
+                self.awareness = ALProxy("ALBasicAwareness")
+
+        self.motion = ALProxy("ALMotion")
+        self.posture = ALProxy("ALRobotPosture")
+        self.audio = ALProxy("ALAudioPlayer")
+        # self.audio = session.service("ALAudioPlayer")
+        self.speech = ALProxy("ALTextToSpeech")
+        self.ani_speech = ALProxy("ALAnimatedSpeech")
+        self.behaviour = ALProxy("ALBehaviorManager")
+
+        self.stop_song()
+
+        # -- speech volume
+        self.speech.setVolume(1.0)
+
+        if not self.is_virtual:
+            # -- set basic awareness mode
+            if self.basic_awareness_on:
+                self.awareness.setEngagementMode("SemiEngaged")
+                self.awareness.setTrackingMode("Head")
+
+            # -- set init image
+            self.tablet.setBackgroundColor("#ffffff")
+            self.tablet.showImage(self.image_path)
+
+            # -- load web application
+            try:
+                self.tablet.loadApplication(appName)
+                self.logger.info("Successfully set application: %s" % appName)
+                self.update_bpm(99)
+                self.update_pulsewave(400)
+            except Exception as e:
+                print("Error was:", e)
+                print("Failed to set application: %s" % appName)
+
+            # -- enable touch listener
+            connect_id = self.tablet.onTouchDown.connect(self.touch_callback)
+        else:
+            # -- don't wait to activate the program by clicking on tablet
+            self.waiting_for_touch = False
+
+    def touch_callback(self, x, y):
+        self.waiting_for_touch = False
+        print ("tablet was touched at x: " + str(x) + "  y: " + str(y))
+        # self.tablet.hideImage()
+        self.tablet.showWebview()
+
+    def play_song(self, song):
+        self.logger.info("playing song: " + song)
+        song_path = self.behaviorAbsolutePath + song
+        if not self.is_virtual:
+            self.audio.post.playFile(song_path, 0.6, 0.0)
+
+    def stop_song(self):
+        # self.audio.stopAll()
+        if not self.is_virtual:
+            self.audio.stopAll()
+
+    def say(self, text):
+        self.speech.say(text)
+
+    def animated_say(self, text, _async=False):
+        if _async == False:
+            self.ani_speech.say(text)
+        else:
+            self.ani_speech.post.say(text)
+        #self.ani_speech.say(text, _async=_async)
+        #self.do_exercise(post_exercise_motion(), _async=_async)
+
+    def cute_eyes(self, duration=5):
+        fade_duration = 0.05
+        self.blink()
+        self.leds.post.fadeRGB("FaceLed6", "magenta", fade_duration)
+        self.leds.post.fadeRGB("FaceLed7", "magenta", fade_duration)
+        time.sleep(duration)
+        self.blink()
+
+    def blink(self):
+        rDuration = 0.05
+        self.leds.post.fadeRGB( "FaceLed0", 0x000000, rDuration )
+        self.leds.post.fadeRGB( "FaceLed1", 0x000000, rDuration )
+        self.leds.post.fadeRGB( "FaceLed2", 0xffffff, rDuration )
+        self.leds.post.fadeRGB( "FaceLed3", 0x000000, rDuration )
+        self.leds.post.fadeRGB( "FaceLed4", 0x000000, rDuration )
+        self.leds.post.fadeRGB( "FaceLed5", 0x000000, rDuration )
+        self.leds.post.fadeRGB( "FaceLed6", 0xffffff, rDuration )
+        self.leds.fadeRGB( "FaceLed7", 0x000000, rDuration )
+        time.sleep( 0.1 )
+        self.leds.fadeRGB( "FaceLeds", 0xffffff, rDuration )
+
+    def update_bpm(self, bpm):
+        if not self.is_virtual:
+            self.tablet.executeJS("updates.updateBPM(" + str(bpm) + ")")
+
+    def update_pulsewave(self, signal):
+        if not self.is_virtual:
+            self.tablet.executeJS("updates.updatePulseWave(" + str(signal) + ")")
+
+    def stand(self):
+        self.posture.goToPosture("Stand", 1)
+
+class DataClient():
+    def __init__(self, logger, behaviorAbsolutePath, virtual, port):
+        self.logger = logger
+        if virtual:
+            self.ip = "127.0.0.1"
+        else:
+            self.ip = "raspberrypi.local" # change to IP to the raspberry or to the pc with slideshow.py
+        self.port = port
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    def call_for(self):
+        self.logger.info("asking for " + msg)
+        try:
+            self.sock.sendto(msg, (self.ip, self.port))
+            response = self.sock.recv(1024)
+            self.logger.info(response)
+        except:
+            self.logger.info("connection to raspi not available")
+
+        return [0, 0]
+
+    def call_for_data(self):
+        self.logger.info("asking for data")
+        try:
+            self.sock.sendto("data", (self.ip, self.port))
+            response = self.sock.recv(1024)
+            # self.logger.info(response)
+
+            bpm, pulse = json.loads(response)
+            #data_msg = "BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse)
+            #self.logger.info(data_msg)
+            return bpm, pulse
+        except:
+            self.logger.info("connection to raspi not available")
+            return [0, 0]]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /></Box></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>

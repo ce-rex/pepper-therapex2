@@ -42,46 +42,6 @@
    <nature>interactive</nature>
    <permissions/>
   </behaviorContent>
-  <behaviorContent path="ex1_zen">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex2_rolling">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex3_serve">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex4_wave">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex5_chicken">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex6_darja">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex7_punch_front">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex8_punch_top">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex9_punch_all1">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
-  <behaviorContent path="ex9_punch_all2">
-   <nature>interactive</nature>
-   <permissions/>
-  </behaviorContent>
  </contents>
  <requirements>
   <naoqiRequirement minVersion="2.3"/>

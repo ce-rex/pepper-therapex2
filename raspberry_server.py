@@ -8,6 +8,9 @@ from exercise_manager import ExerciseManager
 # import tkinter as tk
 # from PIL import ImageTk, Image
 
+# copy to raspi
+# scp -r /Users/clara/TUMaster/8_WS2021/ProjektMedInf/pepper-therapex2 pi@raspberrypi.local:/home/pi/Desktop/
+
 # setup udp-server
 ip = "raspberrypi.local"  # change to IP to the raspberry or to the pc with slideshow.py
 port = 5005
@@ -24,7 +27,8 @@ print("I'm running from /home/pi/.config/autostart/pepper_therapex_study.desktop
 def udp_rec(ex_man):
     timeout = 5
     ready = True
-    test_data = [[63, 435, 62, 64], [61, 378, 62, 63]]
+    # test_data = [[63, 435, 62, 64], [61, 378, 62, 63]]
+    test_data = [[63, 435], [61, 378]]
     headers = ['time', 'BPM', 'pulse_data', 'resting_BPM', 'exercise_intensity']
     data_saver = None
     session_num = 1

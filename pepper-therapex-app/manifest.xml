@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<package version="0.0.1" uuid="pepper-therapex-app-fd7461">
+ <names>
+  <name lang="en_US">pepper_tablet</name>
+  <name lang="fr_FR">servicedriven</name>
+ </names>
+ <supportedLanguages>
+  <language>en_US</language>
+ </supportedLanguages>
+ <descriptionLanguages>
+  <language>en_US</language>
+ </descriptionLanguages>
+ <contents>
+  <behaviorContent path=".">
+   <userRequestable/>
+   <nature>interactive</nature>
+   <names>
+    <name lang="en_US">helenapack</name>
+   </names>
+   <descriptions>
+    <description lang="en_US">Shows a page on the tablet</description>
+   </descriptions>
+   <triggerSentences>
+    <sentence lang="en_US">simple tablet page</sentence>
+    <sentence lang="fr_FR">Lance servicedriven</sentence>
+   </triggerSentences>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="resting">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="start_screen">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="goodbye">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="calibration">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+ </contents>
+ <requirements>
+  <naoqiRequirement minVersion="2.3"/>
+  <robotRequirement/>
+ </requirements>
+ <services>
+  <service autorun="false" execStart="/usr/bin/python2 services/appservice.py" name="AppService"/>
+ </services>
+</package>
