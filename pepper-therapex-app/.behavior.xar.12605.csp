@@ -23,7 +23,7 @@ class MyClass(GeneratedClass):
         session_runtime = ex_runtime * num_exercises
         sessions = 2
 
-        # standby screen
+        # STANDBY SCREEN
         self.logger.info("waiting for touch")
         while self.exercise_manager.robot.waiting_for_touch:
             time.sleep(1)
@@ -32,14 +32,25 @@ class MyClass(GeneratedClass):
 
         # RESTING BPM CALIBRATION
         self.exercise_manager.start_calibration()
-        self.thread_monitoring_resume = threading.Event()
-        self.thread_monitoring = threading.Thread(target=self.run_data_update)
-        self.thread_monitoring.start()
-        self.thread_monitoring_resume.set()
-        # self.manager.robot.play_song("/songs/blindinglights.wav")
-        # time.sleep(5)
-        # self.manager.stop_everything()
-        # self.manager.update_data()
+
+        # SESSIONS
+        for s in range(sessions):
+            # - MUSIC
+            #thread_music = threading.Thread(target=play_music, args=([SONGS[10], SONGS[4]], session_runtime))
+            #thread_music.start()
+
+            # - MOTIVATIONAL PHRASES
+            #thread_speech = threading.Thread(target=say_motivational_phrases, args=(session_runtime,))
+            #thread_speech.start()
+
+            self.thread_monitoring_resume = threading.Event()
+            self.thread_monitoring = threading.Thread(target=self.run_data_update)
+            self.thread_monitoring.start()
+            self.thread_monitoring_resume.set()
+            # self.manager.robot.play_song("/songs/blindinglights.wav")
+            # time.sleep(5)
+            # self.manager.stop_everything()
+            # self.manager.update_data()
 
         self.onStopped() #activate the output of the box
 
@@ -57,6 +68,12 @@ class MyClass(GeneratedClass):
             time.sleep(0.1)
 
         self.logger.info("hi2")
+
+    def play_music(self, playlist, duration):
+        start = time.time()
+        for song in playlist:
+            if time.time() - start < duration:
+                self.exercise_manager.play_song(song)
 
 
 class ExerciseManager():

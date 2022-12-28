@@ -48,6 +48,6 @@
   <robotRequirement/>
  </requirements>
  <services>
-  <service autorun="false" execStart="/usr/bin/python2 services/appservice.py" name="AppService"/>
+  <service execStart="/usr/bin/python2 services/appservice.py" name="AppService" autorun="false"/>
  </services>
 </package>

@@ -39,6 +39,7 @@ def send_data():
     test_data = [[63, 435], [61, 378]]
     headers = ['time', 'BPM', 'pulse_data', 'resting_BPM', 'exercise_intensity']
     ready = True
+    counter = 0
 
     while True:
         try:
@@ -47,7 +48,6 @@ def send_data():
                 msg, source_address = data_sock.recvfrom(1024)
 
                 if msg == b'data':
-                    counter = 0
                     # reply with bpm, pulse, resting_bpm, last20_bpm?
                     counter = counter % 2
                     response = json.dumps(test_data[counter])
