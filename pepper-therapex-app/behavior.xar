@@ -23,23 +23,37 @@ class MyClass(GeneratedClass):
         session_runtime = ex_runtime * num_exercises
         sessions = 2
 
-        # standby screen
+        # SET PLAYLIST
+        #playlist = [[SONGS[10], SONGS[4]], [SONGS[10], SONGS[4]]]
+
+        # STANDBY SCREEN
         self.logger.info("waiting for touch")
         while self.exercise_manager.robot.waiting_for_touch:
             time.sleep(1)
         self.logger.info("touched!")
-        time.sleep(10)
+        #time.sleep(10)
 
         # RESTING BPM CALIBRATION
         self.exercise_manager.start_calibration()
-        self.thread_monitoring_resume = threading.Event()
-        self.thread_monitoring = threading.Thread(target=self.run_data_update)
-        self.thread_monitoring.start()
-        self.thread_monitoring_resume.set()
-        # self.manager.robot.play_song("/songs/blindinglights.wav")
-        # time.sleep(5)
-        # self.manager.stop_everything()
-        # self.manager.update_data()
+
+        # SESSIONS
+        for session in range(sessions):
+            # - MUSIC
+            #thread_music = threading.Thread(target=play_music, args=(playlist[session], session_runtime))
+            #thread_music.start()
+
+            # - MOTIVATIONAL PHRASES
+            #thread_speech = threading.Thread(target=say_motivational_phrases, args=(session_runtime,))
+            #thread_speech.start()
+
+            self.thread_monitoring_resume = threading.Event()
+            self.thread_monitoring = threading.Thread(target=self.run_data_update)
+            self.thread_monitoring.start()
+            self.thread_monitoring_resume.set()
+            # self.manager.robot.play_song("/songs/blindinglights.wav")
+            # time.sleep(5)
+            # self.manager.stop_everything()
+            # self.manager.update_data()
 
         self.onStopped() #activate the output of the box
 
@@ -58,14 +72,25 @@ class MyClass(GeneratedClass):
 
         self.logger.info("hi2")
 
+    def play_music(self, playlist, duration):
+        start = time.time()
+        for song in playlist:
+            if time.time() - start < duration:
+                self.exercise_manager.play_song(song)
+
 
 class ExerciseManager():
     def __init__(self, session, logger, behaviorAbsolutePath, virtual):
         self.logger = logger
         self.test = "asdga"
         self.robot = Pepper(session, logger, behaviorAbsolutePath, virtual)
-        self.data_client = DataClient(logger, behaviorAbsolutePath, virtual, port=5006)
+
+        # init connection to data server
+        self.data_client = DataClient(logger, behaviorAbsolutePath, virtual, data_port=5006, arg_port=5005)
+        self.data_client.call_for("start")
+
         self.playlist = ["/songs/blindinglights.wav", "/songs/feel_it_still.wav"]
+        self.virtual = virtual
 
         self.last_bpm = 0
         self.last20_bpm = np.arange(-20, 0)
@@ -83,7 +108,7 @@ class ExerciseManager():
         bpm, pulse_signal = self.data_client.call_for_data()
 
         if (not bpm == 0) or (not pulse_signal == 0):
-            self.logger.info("BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse_signal))
+            # self.logger.info("BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse_signal))
 
             self.current_intensity = np.nan  # some random number
 
@@ -102,6 +127,51 @@ class ExerciseManager():
                 self.logger.info(self.last20_bpm)
 
                 self.last_bpm = bpm
+
+    def start_calibration(self):
+        #self.robot.awareness_on()
+        # tell participant to sit still and breathe while calibration
+        self.robot.animated_say("Please sit still and breathe normally, while I am calibrating!")
+        #self.robot.awareness_off()
+        # start "calibration movement" e.g.  animations/Stand/Waiting/BreathLoop_1
+        if not self.virtual:
+            self.robot.behaviour.runBehavior("boot-config/animations/networkLoop", _async=True)
+
+        # calc variance until the BPM is stable (variance < 1)
+        print("CALIBRATING...")
+        while self.last20_bpm_variance > 10:  # 1.5 or 2
+            self.update_data()
+            print("BPM: " + str(self.last_bpm))
+            print("VARIANCE: " + str(self.last20_bpm_variance))
+
+        print("EAR PIECE IS CALIBRATED!")
+
+        # calc resting BPM
+        self.resting_bpm = self.last20_bpm.mean()
+        print("RESTING BPM: " + str(self.resting_bpm))
+
+        # calc BPM boundaries
+        self.lower_bound_bpm = self.resting_bpm * 1.2
+        self.upper_bound_bpm = self.resting_bpm * 1.3
+        print("BPM boundaries: " + str(self.lower_bound_bpm) + " --- " + str(self.upper_bound_bpm))
+
+        # update tablet
+        # self.robot.update_bpm_boundaries(self.resting_bpm, self.lower_bound_bpm, self.upper_bound_bpm)
+
+        # stop "calibration movement"
+        if not self.virtual:
+            self.robot.behaviour.stopBehavior("boot-config/animations/networkLoop")
+            self.robot.behaviour.runBehavior("boot-config/animations/success", _async=True)
+            time.sleep(1)  # wait so behavior can finish
+        #self.play_post_exercise_motion()
+        #self.robot.awareness_on()
+
+        # notify user that exercise is now starting
+        self.robot.animated_say("^mode(contextual)I'm done calibrating!\\pau=500\\"
+                                "I will show you some exercises now. Try to follow my movements!\\pau=400\\"
+                                "^start(animations/Stand/BodyTalk/Speaking/BodyTalk_1)"
+                                "Get ^mode(disabled) ready! ^mode(disabled) Let's go!")
+        #self.robot.awareness_off()
 
     def stop_everything(self):
         # stop robot
@@ -240,32 +310,34 @@ class Pepper():
         self.posture.goToPosture("Stand", 1)
 
 class DataClient():
-    def __init__(self, logger, behaviorAbsolutePath, virtual, port):
+    def __init__(self, logger, behaviorAbsolutePath, virtual, data_port, arg_port):
         self.logger = logger
         if virtual:
             self.ip = "127.0.0.1"
         else:
             self.ip = "raspberrypi.local" # change to IP to the raspberry or to the pc with slideshow.py
-        self.port = port
+        self.data_port = data_port
+        self.arg_port = arg_port
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.data_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.arg_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def call_for(self):
+    def call_for(self, msg):
         self.logger.info("asking for " + msg)
         try:
-            self.sock.sendto(msg, (self.ip, self.port))
-            response = self.sock.recv(1024)
+            self.arg_sock.sendto(msg, (self.ip, self.arg_port))
+            response = self.arg_sock.recv(1024)
             self.logger.info(response)
         except:
             self.logger.info("connection to raspi not available")
 
-        return [0, 0]
+        return response
 
     def call_for_data(self):
-        self.logger.info("asking for data")
+        # self.logger.info("asking for data")
         try:
-            self.sock.sendto("data", (self.ip, self.port))
-            response = self.sock.recv(1024)
+            self.data_sock.sendto("data", (self.ip, self.data_port))
+            response = self.data_sock.recv(1024)
             # self.logger.info(response)
 
             bpm, pulse = json.loads(response)

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 
 
 class DataSaver:
@@ -8,6 +9,15 @@ class DataSaver:
         self.filename = filename
         self.headers = data_headers
         df = pd.DataFrame(columns=self.headers)
+
+        # create data_saving dir if not exists
+        path = "data_log"
+        # Check whether the specified path exists or not
+        dir_exists = os.path.exists(path)
+        if not dir_exists:
+            # Create a new directory because it does not exist
+            os.makedirs(path)
+            print("The new directory is created!")
 
         # save headers to file
         df.to_csv(self.filename, mode='w', header=True, sep=';', index=False)

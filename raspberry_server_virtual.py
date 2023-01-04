@@ -5,9 +5,6 @@ import json
 from threading import Thread
 from exercise_manager import ExerciseManager
 
-# import tkinter as tk
-# from PIL import ImageTk, Image
-
 # copy to raspi
 # scp -r /Users/clara/TUMaster/8_WS2021/ProjektMedInf/pepper-therapex2 pi@raspberrypi.local:/home/pi/Desktop/
 
@@ -77,142 +74,41 @@ def udp_rec():
         try:
             # ready = select.select([sock], [], [], timeout)
             if ready:
-                msg, source_address = sock.recvfrom(1024)
-                # # print(msg)
-                # # print(source_address)
-                # # what data does the client send/need?
-                #
-                # if msg == b'newsession':
-                #     # create new recording file
-                #     # exercise_manager.start_new_session()
-                #     print(msg)
-                #
-                # elif msg == b'data':
-                #     print(msg)
-                #     # reply with bpm, pulse, resting_bpm, last20_bpm?
-                #     # exercise_manager.update_data()
-                #     # response = json.dumps(test_data[counter])
-                #     # print(response)
-                #     # sock.sendto(response.encode(), source_address)
-                #
-                #     # reply with bpm, pulse, resting_bpm, last20_bpm?
-                #     counter = counter % 2
-                #     response = json.dumps(test_data[counter])
-                #     print(response)
-                #     sock.sendto(response.encode(), source_address)
-                #     counter += 1
-                #
-                # elif msg == b'calibration':
-                #     exercise_manager.start_calibration()
-                #
-                #     response = "started calibration process!"
-                #     sock.sendto(response.encode(), source_address)
-                #
-                # elif msg == b'exercise':
-                #     response = exercise_manager.get_exercise_intensity()
-                #     sock.sendto(response.encode(), source_address)
-
-                if msg == b'start':
+                bmsg, source_address = sock.recvfrom(1024)
+                msg = bmsg.decode()
+                if msg == "start":
                     # save session
                     # exercise_manager.start_new_experiment_cycle()
 
                     response = "started exercise cycle!"
                     sock.sendto(response.encode(), source_address)
 
-                elif msg == b'done':
+                elif msg == "done":
                     # save session
                     # exercise_manager.save_session_data()
 
                     response = "stopped exercise cycle!"
                     sock.sendto(response.encode(), source_address)
 
+                elif "resting_bpm" in msg:
+                    # get resting bpm value (assume double digits)
+                    # 3 digit resting bpm should not occur
+                    resting_bpm = int(msg[-2:])
+
+
+
+
                 else:
                     print("unknown request")
-                # print("received message:", data, "from:", addr)
-
-                # # set max slides and wav
-                # if current_slide >= 18:
-                #     current_slide = 18
-                #
-                # if current_wav >= 22:
-                #     current_wav = 22
-                #
-                # if current_wav_loop >= 3:
-                #     current_wav_loop = 3
-                #
-                # # play certain wav
-                # if data[-4:] == b".wav":
-                #     wav_number = data[:-4]
-                #     print(data)
-                #     print(data[:-4])
-                #     print(wav_number)
-                #     thread_play_sound = Thread(target=play_sound, args=[int(wav_number)])
-                #     thread_play_sound.start()
-                #
-                # # show certain slide
-                # if data[-4:] == b".jpg" or data[-4:] == b".JPG":
-                #     jpg_number = data[:-4]
-                #     print(data)
-                #     print(data[:-4])
-                #     print(jpg_number)
-                #     show_slide(int(jpg_number))
-
-                # run slides
-                # if data == b"next_slide":
-                #    current_slide = current_slide +1
-                #    show_slide(current_slide)
-
-                # if data == b"restart_slideshow":
-                #    current_slide = 1
-                #    show_slide(current_slide)
-
-                # run wav interaction
-                # if data == b"next_wav":
-                #    current_wav = current_wav +1
-                #   #play_sound(current_wav)
-                #    thread_play_sound = Thread(target=play_sound, args=[current_wav])
-                #    thread_play_sound.start()
-
-                # if data == b"restart_wav":
-                #    current_wav = 4
-                #    thread_play_sound = Thread(target=play_sound, args=[current_wav])
-                #    thread_play_sound.start()
-
-                # run wav loop
-                # if data == b"next_wav_loop":
-                #    current_wav_loop = current_wav_loop +1
-                #    #play_sound(current_wav)
-                #    thread_play_sound = Thread(target=play_sound, args=[current_wav_loop])
-                #    thread_play_sound.start()
-
-                # if data == b"restart_wav_loop":
-                #    current_wav_loop = 1
-                #    thread_play_sound = Thread(target=play_sound, args=[current_wav_loop])
-                #    thread_play_sound.start()
-
-
 
         except:
             print("something went wrong")
-        #     current_slide = 1
-        #     show_slide(current_slide)
-        #
-        #     current_wav = 4
-        #     current_wav_loop = 1
 
         # time.sleep(0.1)
 
 
-# thread_upd_rec = Thread(target=udp_rec, args=(exercise_manager,))
 thread_upd_rec = Thread(target=udp_rec)
 thread_upd_rec.start()
 
 thread_data = Thread(target=send_data)
 thread_data.start()
-
-# # ability to exit
-# window.bind("<Escape>", lambda event
-# :window.destroy())
-#
-# # run
-# window.mainloop()
