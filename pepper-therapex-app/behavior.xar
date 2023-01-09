@@ -62,16 +62,13 @@ class MyClass(GeneratedClass):
                 #print("This is session %s exercise %s", s, counter)
 
                 # START EXERCISE
-                #thread_exercise = threading.Thread(target=run_exercise, args=(ex_runtime,))
-                #thread_exercise.start()
                 self.exercise_manager.play_exercise(ex_runtime)
 
                 # EVALUATE BPM and adjust exercise intensity
-                #thread_exercise.join()
-                self.thread_monitoring_resume.clear()
+                self.thread_monitoring_resume.clear()  # stop updating data
                 time.sleep(0.5)
-                #self.exercise_manager.evaluate_bpm()
-                self.thread_monitoring_resume.set()
+                self.exercise_manager.evaluate_bpm()
+                self.thread_monitoring_resume.set()  # resume updating data
 
             # STOP MUSIC AND MOTIVATIONAL SPEECH
             #exercise_manager.stop_song()
@@ -106,11 +103,6 @@ class MyClass(GeneratedClass):
             if time.time() - start < duration:
                 self.exercise_manager.play_song(song)
 
-    def do_exercise(self, duration):
-        # start exercise loop
-        self.exercise_manager.play_exercise(duration)
-
-
 class ExerciseManager():
     def __init__(self, session, logger, behaviorAbsolutePath, virtual):
         self.logger = logger
@@ -130,6 +122,12 @@ class ExerciseManager():
 
         self.current_intensity = 1
         self.exercise_idx = 0
+        self.easy_exerices = [0, 1, 2]
+        self.medium_exercises = [3, 4, 5]
+        self.hard_exercises = [6, 7, 8, 9]
+        # b = [0, 1, 2]
+        # np.random.seed(0)
+        # np.random.shuffle(b)
 
     def call(self):
         print("hellooooooooooooo" + self.test)
@@ -228,6 +226,36 @@ class ExerciseManager():
             #self.robot.tablet.showImage(self.robot.image_path)
         self.logger.info("success")
         self.robot.stand()
+
+    def evaluate_bpm(self):
+        # copy last_bpm
+        last_bpm = self.last_bpm
+        self.logger.info("current intensity:" + str(self.exercise_idx))
+
+        # evaluate if intensity should stay the same, go up or down
+        if last_bpm < self.lower_bound_bpm:
+            self.current_intensity = 1  # UP
+            self.logger.info("BPM TOO LOW, faster exercise!")
+        elif last_bpm > self.upper_bound_bpm:
+            self.current_intensity = -1  # DOWN
+            self.logger.info("BPM TOO HIGH, slower exercise!")
+        else:
+            self.current_intensity = 0  # STAY
+            self.logger.info("BPM PERFECT, keep doing what you are doing!")
+
+        # change exercise level and select new exercise
+
+
+        '''
+        if 0 < self.exercise_idx < len(exercises) - 1:
+            # if not self.is_first_exercise:
+            #     self.exercises_left.pop(self.exercise_idx)
+            self.exercise_idx = self.exercises_left[self.exercise_idx + 1]
+            print("next intensity:" + str(self.exercise_idx))
+        elif self.exercise_idx >= len(exercises) - 1:
+            self.exercise_idx = random.choice(hard_exercises_idx)
+        else:
+            self.exercise_idx = random.choice(easy_exercises_idx)'''
 
 
 class Pepper():

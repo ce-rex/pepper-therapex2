@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<package version="0.0.1" uuid="pepper_tablet">
+<package uuid="pepper_tablet" version="0.0.1">
  <names>
-  <name lang="en_US">pepper_tablet</name>
+  <name lang="en_US">pepper_therapex_app</name>
   <name lang="fr_FR">servicedriven</name>
  </names>
  <supportedLanguages>
@@ -24,6 +24,8 @@
     <sentence lang="en_US">simple tablet page</sentence>
     <sentence lang="fr_FR">Lance servicedriven</sentence>
    </triggerSentences>
+   <loadingResponses/>
+   <autonomous/>
    <permissions/>
   </behaviorContent>
   <behaviorContent path="resting">
@@ -50,12 +52,75 @@
    <nature>interactive</nature>
    <permissions/>
   </behaviorContent>
+  <behaviorContent path="movements/2_rolling">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/3_serve">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/4_wave">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/5_chicken">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/6_darja">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/7_punch_front">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/8_punch_top">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/9_punch_all">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/9_punch_all2">
+   <nature>interactive</nature>
+   <triggerSentences/>
+   <loadingResponses/>
+   <autonomous/>
+   <permissions/>
+  </behaviorContent>
  </contents>
  <requirements>
   <naoqiRequirement minVersion="2.3"/>
   <robotRequirement/>
  </requirements>
  <services>
-  <service autorun="false" execStart="/usr/bin/python2 services/appservice.py" name="AppService"/>
+  <service execStart="/usr/bin/python2 services/appservice.py" autorun="false" name="AppService"/>
  </services>
 </package>

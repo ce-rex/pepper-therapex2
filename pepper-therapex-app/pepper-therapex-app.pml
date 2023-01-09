@@ -10,6 +10,15 @@
         <BehaviorDescription name="behavior" src="movements/goToStand" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="movements/all_exercises" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="movements/1_zen" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/2_rolling" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/3_serve" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/4_wave" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/5_chicken" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/6_darja" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/7_punch_front" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/8_punch_top" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/9_punch_all" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/9_punch_all2" xar="behavior.xar" />
     </BehaviorDescriptions>
     <Dialogs />
     <Resources>
