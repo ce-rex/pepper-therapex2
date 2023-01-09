@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<package version="0.0.1" uuid="pepper-therapex-app-fd7461">
+<package version="0.0.1" uuid="pepper_tablet">
  <names>
   <name lang="en_US">pepper_tablet</name>
   <name lang="fr_FR">servicedriven</name>
@@ -42,12 +42,20 @@
    <nature>interactive</nature>
    <permissions/>
   </behaviorContent>
+  <behaviorContent path="movements/goToStand">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
+  <behaviorContent path="movements/1_zen">
+   <nature>interactive</nature>
+   <permissions/>
+  </behaviorContent>
  </contents>
  <requirements>
   <naoqiRequirement minVersion="2.3"/>
   <robotRequirement/>
  </requirements>
  <services>
-  <service execStart="/usr/bin/python2 services/appservice.py" name="AppService" autorun="false"/>
+  <service autorun="false" execStart="/usr/bin/python2 services/appservice.py" name="AppService"/>
  </services>
 </package>

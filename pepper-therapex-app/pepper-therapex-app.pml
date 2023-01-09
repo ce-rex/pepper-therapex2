@@ -3,11 +3,13 @@
     <Manifest src="manifest.xml" />
     <BehaviorDescriptions>
         <BehaviorDescription name="behavior" src="." xar="behavior.xar" />
-        <BehaviorDescription name="behavior" src="exercises" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="resting" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="start_screen" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="goodbye" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="calibration" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/goToStand" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/all_exercises" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/1_zen" xar="behavior.xar" />
     </BehaviorDescriptions>
     <Dialogs />
     <Resources>

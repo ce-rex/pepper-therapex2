@@ -19,7 +19,7 @@ class MyClass(GeneratedClass):
     def onInput_onStart(self):
         self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=True)
         ex_runtime = 5
-        num_exercises = 6
+        num_exercises = 2  #6
         session_runtime = ex_runtime * num_exercises
         sessions = 2
 
@@ -46,14 +46,41 @@ class MyClass(GeneratedClass):
             #thread_speech = threading.Thread(target=say_motivational_phrases, args=(session_runtime,))
             #thread_speech.start()
 
+            self.exercise_running = True
             self.thread_monitoring_resume = threading.Event()
             self.thread_monitoring = threading.Thread(target=self.run_data_update)
             self.thread_monitoring.start()
             self.thread_monitoring_resume.set()
+
             # self.manager.robot.play_song("/songs/blindinglights.wav")
-            # time.sleep(5)
             # self.manager.stop_everything()
             # self.manager.update_data()
+            counter = 0
+
+            while counter < num_exercises:
+                counter = counter + 1
+                #print("This is session %s exercise %s", s, counter)
+
+                # START EXERCISE
+                #thread_exercise = threading.Thread(target=run_exercise, args=(ex_runtime,))
+                #thread_exercise.start()
+                self.exercise_manager.play_exercise(ex_runtime)
+
+                # EVALUATE BPM and adjust exercise intensity
+                #thread_exercise.join()
+                self.thread_monitoring_resume.clear()
+                time.sleep(0.5)
+                #self.exercise_manager.evaluate_bpm()
+                self.thread_monitoring_resume.set()
+
+            # STOP MUSIC AND MOTIVATIONAL SPEECH
+            #exercise_manager.stop_song()
+            #thread_music.join()
+            #thread_speech.join()
+            self.exercise_running = False
+            self.thread_monitoring.join()
+            time.sleep(3)
+            #exercise_manager.save_session_data()
 
         self.onStopped() #activate the output of the box
 
@@ -61,22 +88,27 @@ class MyClass(GeneratedClass):
         self.onUnload() #it is recommended to reuse the clean-up as the box is stopped
         self.onStopped() #activate the output of the box
 
-    def run_data_update(self, duration=5):
+    def run_data_update(self):
         start = time.time()
-        self.logger.info("hi")
-        while time.time() - start < duration:
+        self.logger.info("start requesting data!")
+        #while time.time() - start < duration:
+        while self.exercise_running:
             #self.logger.info("hi" + str(time.time() - start))
             self.thread_monitoring_resume.wait()
             self.exercise_manager.update_data()
             time.sleep(0.1)
 
-        self.logger.info("hi2")
+        self.logger.info("stop requesting data!")
 
     def play_music(self, playlist, duration):
         start = time.time()
         for song in playlist:
             if time.time() - start < duration:
                 self.exercise_manager.play_song(song)
+
+    def do_exercise(self, duration):
+        # start exercise loop
+        self.exercise_manager.play_exercise(duration)
 
 
 class ExerciseManager():
@@ -124,7 +156,7 @@ class ExerciseManager():
                 self.last20_bpm = np.append(self.last20_bpm, [bpm])
                 self.last20_bpm = self.last20_bpm[1:]
                 self.last20_bpm_variance = self.last20_bpm.var()
-                self.logger.info(self.last20_bpm)
+                #self.logger.info(self.last20_bpm)
 
                 self.last_bpm = bpm
 
@@ -163,7 +195,7 @@ class ExerciseManager():
             self.robot.behaviour.stopBehavior("boot-config/animations/networkLoop")
             self.robot.behaviour.runBehavior("boot-config/animations/success", _async=True)
             time.sleep(1)  # wait so behavior can finish
-        #self.play_post_exercise_motion()
+        self.robot.behaviour.runBehavior("pepper_tablet/movements/goToStand")
         #self.robot.awareness_on()
 
         # notify user that exercise is now starting
@@ -172,6 +204,15 @@ class ExerciseManager():
                                 "^start(animations/Stand/BodyTalk/Speaking/BodyTalk_1)"
                                 "Get ^mode(disabled) ready! ^mode(disabled) Let's go!")
         #self.robot.awareness_off()
+
+    def play_exercise(self, duration, exercise=None):
+        #if exercise is None:
+        #    exercise = exercises[self.exercise_idx]
+        self.robot.behaviour.runBehavior("pepper_tablet/movements/1_zen", _async=True)
+        time.sleep(duration)
+        self.robot.behaviour.stopBehavior("pepper_tablet/movements/1_zen")
+        self.robot.behaviour.runBehavior("pepper_tablet/movements/goToStand")
+        self.logger.info("stopped exercise!")
 
     def stop_everything(self):
         # stop robot
@@ -196,6 +237,7 @@ class Pepper():
         self.basic_awareness_on = False
         self.waiting_for_touch = True
         self.is_virtual = virtual
+        self.session = session
 
         appName = ".lastUploadedChoregrapheBehavior"
         #appName = "pepper_tablet"
@@ -204,7 +246,7 @@ class Pepper():
         # -- proxies
         self.logger = logger
         if not self.is_virtual:
-            self.tablet = session.service("ALTabletService")
+            self.tablet = self.session.service("ALTabletService")
             self.leds = ALProxy("ALLeds")
             self.autonomous_life = ALProxy("ALAutonomousLife")
             if self.basic_awareness_on:
@@ -216,7 +258,7 @@ class Pepper():
         # self.audio = session.service("ALAudioPlayer")
         self.speech = ALProxy("ALTextToSpeech")
         self.ani_speech = ALProxy("ALAnimatedSpeech")
-        self.behaviour = ALProxy("ALBehaviorManager")
+        self.behaviour = self.session.service("ALBehaviorManager")
 
         self.stop_song()
 
