@@ -2,6 +2,7 @@
 import socket
 import json
 import numpy as np
+import random
 
 class MyClass(GeneratedClass):
     def __init__(self):
@@ -17,7 +18,7 @@ class MyClass(GeneratedClass):
         pass
 
     def onInput_onStart(self):
-        self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=True)
+        self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=False)
         ex_runtime = 5
         num_exercises = 2  #6
         session_runtime = ex_runtime * num_exercises
@@ -25,6 +26,16 @@ class MyClass(GeneratedClass):
 
         # SET PLAYLIST
         #playlist = [[SONGS[10], SONGS[4]], [SONGS[10], SONGS[4]]]
+        playlist = ["/songs/blindinglights.wav", "/songs/feel_it_still.wav"]
+
+        # MOTIVATIONAL PHRASES
+        self.motivational_phrases = ["Almost there!",  # 0
+                               "Keep going!",  # 1
+                               "Remember to breathe!",  # 2
+                               "You are almost done!",  # 3
+                               "You can do \\vct=10\\\\rspd=150\\ it!",  # 4
+                               "You're doing great!"  # 5
+                               ]
 
         # STANDBY SCREEN
         self.logger.info("waiting for touch")
@@ -46,6 +57,7 @@ class MyClass(GeneratedClass):
             #thread_speech = threading.Thread(target=say_motivational_phrases, args=(session_runtime,))
             #thread_speech.start()
 
+            # START HEART RATE MONITORING
             self.exercise_running = True
             self.thread_monitoring_resume = threading.Event()
             self.thread_monitoring = threading.Thread(target=self.run_data_update)
@@ -59,14 +71,14 @@ class MyClass(GeneratedClass):
 
             while counter < num_exercises:
                 counter = counter + 1
-                #print("This is session %s exercise %s", s, counter)
+                self.logger.info("This is session %s exercise %s", session, counter)
 
                 # START EXERCISE
                 self.exercise_manager.play_exercise(ex_runtime)
 
                 # EVALUATE BPM and adjust exercise intensity
                 self.thread_monitoring_resume.clear()  # stop updating data
-                time.sleep(0.5)
+                time.sleep(0.1)
                 self.exercise_manager.evaluate_bpm()
                 self.thread_monitoring_resume.set()  # resume updating data
 
@@ -77,7 +89,20 @@ class MyClass(GeneratedClass):
             self.exercise_running = False
             self.thread_monitoring.join()
             time.sleep(3)
-            #exercise_manager.save_session_data()
+            if session < sessions - 1:  # if it was not the last session
+                self.exercise_manager.end_session(is_last_session=False)
+            else:
+                self.exercise_manager.end_session(is_last_session=True)
+
+            # RESTING PHASE AFTER FIRST SESSION
+            if session == 0:
+                self.exercise_manager.start_resting_phase()
+
+        # SAY GOODBYE AND STOP EVERYTHING
+        thread_goodbye = threading.Thread(target=self.exercise_manager.say_goodbye)
+        thread_goodbye.start()
+
+        self.exercise_manager.stop_everything()
 
         self.onStopped() #activate the output of the box
 
@@ -103,6 +128,20 @@ class MyClass(GeneratedClass):
             if time.time() - start < duration:
                 self.exercise_manager.play_song(song)
 
+    def say_motivational_phrases(duration):
+        phrases = self.motivational_phrases
+        random.shuffle(phrases)
+        start = time.time()
+
+        if time.time() - start > duration / 3:
+            self.exercise_manager.robot.say(phrases.pop())
+
+        if time.time() - start > duration * 3 / 4:
+            self.exercise_manager.robot.say(phrases.pop())
+
+        if time.time() - start > duration - 10:
+            self.exercise_manager.robot.say(phrases.pop())
+
 class ExerciseManager():
     def __init__(self, session, logger, behaviorAbsolutePath, virtual):
         self.logger = logger
@@ -111,20 +150,23 @@ class ExerciseManager():
 
         # init connection to data server
         self.data_client = DataClient(logger, behaviorAbsolutePath, virtual, data_port=5006, arg_port=5005)
-        self.data_client.call_for("start")
+        #self.data_client.call_for("start")
+        self.data_client.call_with_data("start")
 
-        self.playlist = ["/songs/blindinglights.wav", "/songs/feel_it_still.wav"]
         self.virtual = virtual
 
         self.last_bpm = 0
         self.last20_bpm = np.arange(-20, 0)
         self.last20_bpm_variance = 100  # some number greater than 1
 
-        self.current_intensity = 1
+        self.current_intensity = 1  # exercise intensity can be 1 (easy), 2 (medium) or 3 (hard)
+        self.intensity_trend = 1
+        self.exercises = ["1_zen", "2_rolling", "3_serve", "4_wave", "5_chicken", "6_darja",
+                        "7_punch_front", "8_punch_top", "9_punch_all", "9_punch_all2"]
         self.exercise_idx = 0
-        self.easy_exerices = [0, 1, 2]
-        self.medium_exercises = [3, 4, 5]
-        self.hard_exercises = [6, 7, 8, 9]
+        self.easy_exerices = ExerciseList(logger, first_exercise_idx=0, last_exercise_idx=2)
+        self.medium_exercises = ExerciseList(logger, first_exercise_idx=3, last_exercise_idx=5)
+        self.hard_exercises = ExerciseList(logger, first_exercise_idx=6, last_exercise_idx=9)
         # b = [0, 1, 2]
         # np.random.seed(0)
         # np.random.shuffle(b)
@@ -140,7 +182,9 @@ class ExerciseManager():
         if (not bpm == 0) or (not pulse_signal == 0):
             # self.logger.info("BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse_signal))
 
-            self.current_intensity = np.nan  # some random number
+            # self.current_intensity = np.nan  # some random number
+            self.last20_bpm = np.append(self.last20_bpm, [bpm])
+            self.last20_bpm = self.last20_bpm[1:]
 
             # update tablet
             if pulse_signal != 0 or pulse_signal >= 680:
@@ -151,8 +195,8 @@ class ExerciseManager():
                 self.robot.update_bpm(bpm)
 
                 # update bpm tracker
-                self.last20_bpm = np.append(self.last20_bpm, [bpm])
-                self.last20_bpm = self.last20_bpm[1:]
+                # self.last20_bpm = np.append(self.last20_bpm, [bpm])
+                # self.last20_bpm = self.last20_bpm[1:]
                 self.last20_bpm_variance = self.last20_bpm.var()
                 #self.logger.info(self.last20_bpm)
 
@@ -168,28 +212,32 @@ class ExerciseManager():
             self.robot.behaviour.runBehavior("boot-config/animations/networkLoop", _async=True)
 
         # calc variance until the BPM is stable (variance < 1)
-        print("CALIBRATING...")
+        self.logger.info("CALIBRATING...")
         while self.last20_bpm_variance > 10:  # 1.5 or 2
             self.update_data()
-            print("BPM: " + str(self.last_bpm))
-            print("VARIANCE: " + str(self.last20_bpm_variance))
+            #self.logger.info("BPM: " + str(self.last_bpm))
+            #self.logger.info("VARIANCE: " + str(self.last20_bpm_variance))
 
-        print("EAR PIECE IS CALIBRATED!")
+        self.logger.info("EAR PIECE IS CALIBRATED!")
 
         # calc resting BPM
         self.resting_bpm = self.last20_bpm.mean()
-        print("RESTING BPM: " + str(self.resting_bpm))
+        self.logger.info("RESTING BPM: " + str(self.resting_bpm))
+
+        # send resting BPM to RaspberryPi (has to be below 100, only works with 2 digit numbers)
+        self.data_client.call_with_data("resting_bpm", self.resting_bpm)
 
         # calc BPM boundaries
         self.lower_bound_bpm = self.resting_bpm * 1.2
         self.upper_bound_bpm = self.resting_bpm * 1.3
-        print("BPM boundaries: " + str(self.lower_bound_bpm) + " --- " + str(self.upper_bound_bpm))
+        self.logger.info("BPM boundaries: " + str(self.lower_bound_bpm) + " --- " + str(self.upper_bound_bpm))
 
         # update tablet
         # self.robot.update_bpm_boundaries(self.resting_bpm, self.lower_bound_bpm, self.upper_bound_bpm)
 
         # stop "calibration movement"
         if not self.virtual:
+            # self.logger.info("I'M TRYING TO STOP THE NETWORK LOOOP!!!!")
             self.robot.behaviour.stopBehavior("boot-config/animations/networkLoop")
             self.robot.behaviour.runBehavior("boot-config/animations/success", _async=True)
             time.sleep(1)  # wait so behavior can finish
@@ -203,12 +251,36 @@ class ExerciseManager():
                                 "Get ^mode(disabled) ready! ^mode(disabled) Let's go!")
         #self.robot.awareness_off()
 
+        # log intensity trend on Raspi
+        self.data_client.call_with_data("intensity", self.intensity_trend)
+
+    def start_resting_phase(self):
+            self.robot.animated_say("^mode(contextual)We are at the end of the first exercise cycle."
+                                    "\\pau=300\\Before we continue, you should rest for 1 minute "
+                                    "to bring your heart rate down.\\pau=300\\"
+                                    "Close your eyes. Relax \\pau=200\\and enjoy the music!^mode(disabled)")
+            self.robot.go_rest()
+            self.robot.resting()
+            self.robot.go_wake_up()
+            self.robot.animated_say("^mode(contextual)I hope you are well rested. \\pau=300\\"
+                                    "Let's start another round of \\vct=105\\ exercises.")
+
+    def say_goodbye(self):
+        self.robot.awareness_on()
+        self.robot.animated_say("^mode(contextual)We are at the end of our exercise session."
+                                "\\pau=300\\ ^start(animations/Stand/Gestures/Hey_6)"
+                                "Goodbye! and see you ^mode(disabled)soon", _async=True)
+        self.robot.cute_eyes(4)
+
     def play_exercise(self, duration, exercise=None):
-        #if exercise is None:
-        #    exercise = exercises[self.exercise_idx]
-        self.robot.behaviour.runBehavior("pepper_tablet/movements/1_zen", _async=True)
+        if exercise is None:
+            exercise = self.exercises[self.exercise_idx]
+
+        self.robot.behaviour.runBehavior("pepper_tablet/movements/" + exercise, _async=True)
+        self.logger.info("started exercise!")
         time.sleep(duration)
-        self.robot.behaviour.stopBehavior("pepper_tablet/movements/1_zen")
+        self.robot.behaviour.stopBehavior("pepper_tablet/movements/" + exercise)
+
         self.robot.behaviour.runBehavior("pepper_tablet/movements/goToStand")
         self.logger.info("stopped exercise!")
 
@@ -230,32 +302,72 @@ class ExerciseManager():
     def evaluate_bpm(self):
         # copy last_bpm
         last_bpm = self.last_bpm
-        self.logger.info("current intensity:" + str(self.exercise_idx))
+        last20_bpm = self.last20_bpm.mean()
+        self.logger.info("last intensity:" + str(self.current_intensity))
 
         # evaluate if intensity should stay the same, go up or down
         if last_bpm < self.lower_bound_bpm:
-            self.current_intensity = 1  # UP
+            intensity_trend = 1  #UP
+            #self.current_intensity = 1  # UP
             self.logger.info("BPM TOO LOW, faster exercise!")
         elif last_bpm > self.upper_bound_bpm:
-            self.current_intensity = -1  # DOWN
+            intensity_trend = -1  #DOWN
+            #self.current_intensity = -1  # DOWN
             self.logger.info("BPM TOO HIGH, slower exercise!")
         else:
-            self.current_intensity = 0  # STAY
+            intensity_trend = 0  #STAY
+            #self.current_intensity = 0  # STAY
             self.logger.info("BPM PERFECT, keep doing what you are doing!")
 
-        # change exercise level and select new exercise
+        # set new exercise intensity (intesity can be 1, 2 or 3)
+        new_intensity = self.current_intensity + intensity_trend
 
+        if new_intensity > 3:
+            new_intensity = 3
+        elif new_intensity < 1:
+            new_intensity = 1
 
-        '''
-        if 0 < self.exercise_idx < len(exercises) - 1:
-            # if not self.is_first_exercise:
-            #     self.exercises_left.pop(self.exercise_idx)
-            self.exercise_idx = self.exercises_left[self.exercise_idx + 1]
-            print("next intensity:" + str(self.exercise_idx))
-        elif self.exercise_idx >= len(exercises) - 1:
-            self.exercise_idx = random.choice(hard_exercises_idx)
+        self.current_intensity = new_intensity
+        self.logger.info("next intensity:" + str(self.current_intensity))
+
+        # select new exercise
+        if new_intensity == 1:
+            # choose random easy exercise
+            self.easy_exerices.get_next_exercise()
+        elif new_intensity == 2:
+            # choose random medium exercise
+            self.medium_exercises.get_next_exercise()
         else:
-            self.exercise_idx = random.choice(easy_exercises_idx)'''
+            # choose random hard exercise
+            self.hard_exercises.get_next_exercise()
+
+        # log intensity trend on Raspi
+        self.data_client.call_with_data("intensity", intensity_trend)
+
+    def end_session(self, is_last_session):
+        # tell RasPi to end the session recording and if this was the last session
+        self.data_client.call_with_data("done", is_last_session)
+
+
+
+class ExerciseList():
+    def __init__(self, logger, first_exercise_idx, last_exercise_idx, random_=False):
+        self.logger = logger
+        self.num_of_exercises = last_exercise_idx - first_exercise_idx + 1
+        self.index = 0
+        self.exercise_list = list(xrange(first_exercise_idx, last_exercise_idx + 1))  # ordered
+        random.shuffle(self.exercise_list)  # randomly ordered list
+
+    def get_next_exercise(self):
+        next_exercise = self.exercise_list[self.index]
+        self.index += 1
+
+        if self.index >= self.num_of_exercises:
+            random.shuffle(self.exercise_list)
+            self.index = 0
+
+        return next_exercise
+
 
 
 class Pepper():
@@ -273,17 +385,18 @@ class Pepper():
 
         # -- proxies
         self.logger = logger
+
+        # these do not exist on the virtual robot
         if not self.is_virtual:
             self.tablet = self.session.service("ALTabletService")
             self.leds = ALProxy("ALLeds")
             self.autonomous_life = ALProxy("ALAutonomousLife")
+            self.audio = self.session.service("ALAudioPlayer")
             if self.basic_awareness_on:
                 self.awareness = ALProxy("ALBasicAwareness")
 
         self.motion = ALProxy("ALMotion")
         self.posture = ALProxy("ALRobotPosture")
-        self.audio = ALProxy("ALAudioPlayer")
-        # self.audio = session.service("ALAudioPlayer")
         self.speech = ALProxy("ALTextToSpeech")
         self.ani_speech = ALProxy("ALAnimatedSpeech")
         self.behaviour = self.session.service("ALBehaviorManager")
@@ -326,10 +439,11 @@ class Pepper():
         self.tablet.showWebview()
 
     def play_song(self, song):
-        self.logger.info("playing song: " + song)
-        song_path = self.behaviorAbsolutePath + song
-        if not self.is_virtual:
-            self.audio.post.playFile(song_path, 0.6, 0.0)
+        if not self.virtual:
+            self.logger.info("playing song: " + song)
+            song_path = self.behaviorAbsolutePath + song
+            if not self.is_virtual:
+                self.audio.post.playFile(song_path, 0.6, 0.0)
 
     def stop_song(self):
         # self.audio.stopAll()
@@ -379,18 +493,71 @@ class Pepper():
     def stand(self):
         self.posture.goToPosture("Stand", 1)
 
+    def go_rest(self):
+        self.behaviour.runBehavior("pepper_tablet/movements/go_rest", _async=True)
+
+    def go_wake_up(self):
+        self.behaviour.runBehavior("pepper_tablet/movements/go_wake_up", _async=True)
+
+    def resting(self):
+        if not self.virtual:
+            song_path = self.behaviorAbsolutePath + "/songs/PathOfTheWindPiano-FadeIn.wav"
+            task_id = self.audio.loadFile(song_path)
+            self.audio.play(task_id, 0.3, 0.0, _async=True)
+            song_length = self.audio.getFileLength(task_id)
+            self.breating(song_length - 4)
+
+    def breating(self, duration):
+        start = time.time()
+        fractionMaxSpeed = 0.02
+
+        angles = [-0.22, 0.11]
+        RArmAngles = [0.15, -0.1, -0.1, -0.3]
+        LArmAngles = [-0.15, -0.1, 0.1, -0.3]
+        RArmAngles = [i * 0.5 for i in RArmAngles]
+        LArmAngles = [i * 0.5 for i in LArmAngles]
+        angles = [i * 0.5 for i in angles]
+
+        while time.time() - start < (duration):
+            # self.motion.setAngles(["HipPitch", "KneePitch"], angles, fractionMaxSpeed)
+            self.motion.changeAngles(["RElbowRoll", "RShoulderPitch", "RShoulderRoll", "RHand"], RArmAngles,
+                                     fractionMaxSpeed * 0.5)
+            self.motion.changeAngles(["LElbowRoll", "LShoulderPitch", "LShoulderRoll", "LHand"], LArmAngles,
+                                     fractionMaxSpeed * 0.5)
+            self.motion.angleInterpolationWithSpeed(["HipPitch", "KneePitch"], angles, fractionMaxSpeed)
+            time.sleep(2)
+            if angles[0] < 0.0:
+                angles = [0.0, 0.0]
+            else:
+                angles = [-0.18, 0.09]
+                angles = [i * 0.8 for i in angles]
+            RArmAngles = [x * -1.0 for x in RArmAngles]
+            LArmAngles = [x * -1.0 for x in LArmAngles]
+
+    def awareness_on(self):
+        if self.basic_awareness_on:
+            self.awareness.setEnabled(True)
+
+    def awareness_off(self):
+        if self.basic_awareness_on:
+            self.awareness.setEnabled(False)
+
+
 class DataClient():
     def __init__(self, logger, behaviorAbsolutePath, virtual, data_port, arg_port):
         self.logger = logger
         if virtual:
             self.ip = "127.0.0.1"
         else:
-            self.ip = "raspberrypi.local" # change to IP to the raspberry or to the pc with slideshow.py
+            self.ip = "192.168.1.102" # server is on local computer
+            #self.ip = "raspberrypi.local" # server is on raspberry pi
+
         self.data_port = data_port
         self.arg_port = arg_port
 
         self.data_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.arg_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.arg_sock.setblocking(False) # Prevent socket from waiting for input
 
     def call_for(self, msg):
         self.logger.info("asking for " + msg)
@@ -398,6 +565,19 @@ class DataClient():
             self.arg_sock.sendto(msg, (self.ip, self.arg_port))
             response = self.arg_sock.recv(1024)
             self.logger.info(response)
+        except:
+            self.logger.info("connection to raspi not available")
+
+        return response
+
+    def call_with_data(self, topic, data=None):
+        #self.logger.info("asking for " + topic + " with data: " + str(data))
+
+        msg = json.dumps([topic, data])
+        try:
+            self.arg_sock.sendto(msg.encode(), (self.ip, self.arg_port))
+            #response = self.arg_sock.recv(1024)
+            self.logger.info("sent " + topic + " with data: " + str(data))
         except:
             self.logger.info("connection to raspi not available")
 
@@ -416,4 +596,4 @@ class DataClient():
             return bpm, pulse
         except:
             self.logger.info("connection to raspi not available")
-            return [0, 0]]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /></Box></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>
+            return [0, 0]]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /></Box><Link inputowner="12" indexofinput="2" outputowner="0" indexofoutput="2" /></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>

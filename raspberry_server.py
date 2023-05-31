@@ -15,11 +15,17 @@ data_port = 5006
 
 # getting the IP address using socket.gethostbyname() method
 hostname = socket.gethostname()
-ip = socket.gethostbyname(hostname)
-# printing the hostname and ip_address
 print("Hostname: " + hostname)
+# ip = socket.gethostbyname(hostname)  # does not work like this
+# printing the hostname and ip_address
+
+if hostname == "raspberrypi":
+    print("I'm running from /home/pi/.config/autostart/pepper_therapex_study.desktop")
+    ip = "raspberrypi.local"  # on raspi
+else:
+    ip = "127.0.0.1"  # on laptop
+    ip = "192.168.1.102"
 print("IP Address: " + ip)
-ip = "127.0.0.1"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((ip, port))
@@ -28,8 +34,6 @@ data_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 data_sock.bind((ip, data_port))
 
 exercise_manager = ExerciseManager(arduino=False)
-
-print("I'm running from /home/pi/.config/autostart/pepper_therapex_study.desktop")
 
 
 def send_data():
@@ -44,7 +48,7 @@ def send_data():
                 if msg == b'data':
                     data = exercise_manager.update_data()
                     response = json.dumps(data)
-                    print(response)
+                    # print(response)
                     data_sock.sendto(response.encode(), source_address)
 
                 else:
@@ -63,30 +67,47 @@ def udp_rec():
             # ready = select.select([sock], [], [], timeout)
             if ready:
                 bmsg, source_address = sock.recvfrom(1024)
-                msg = bmsg.decode()
+                # msg = bmsg.decode()
+                msg, data = json.loads(bmsg)
                 if msg == "start":
                     # save session
                     exercise_manager.start_new_experiment_cycle()
-                    response = "started exercise cycle!"
-                    sock.sendto(response.encode(), source_address)
+                    # response = "RASPI: started exercise cycle!"
+                    # sock.sendto(response.encode(), source_address)
+                    print("\n got request: START exercise cycle")
 
                 elif msg == "done":
                     # save session
                     exercise_manager.save_session_data()
-                    response = "stopped exercise cycle!"
-                    sock.sendto(response.encode(), source_address)
+                    # response = "RASPI: stopped exercise cycle!"
+                    # sock.sendto(response.encode(), source_address)
+                    print("\n got request: STOP exercise cycle")
 
-                elif "resting_bpm" in msg:
+                    # start new session, if requested
+                    if not data:  # if this session was not the last
+                        exercise_manager.start_new_session()
+                    else:
+                        print("\n STOPPED experiment!")
+
+                # elif "resting_bpm" in msg:
+                elif "resting_bpm" == msg:
+                    # print(data)
                     # get resting bpm value (assume double digits)
                     # 3 digit resting bpm should not occur
-                    resting_bpm = int(msg[-2:])
-                    print("resting_bpm: " + str(resting_bpm))
+                    resting_bpm = float(data)  # this might not be an int e.g. 55.5
+                    # response = "RASPI: set resting BPM!"
+                    # sock.sendto(response.encode(), source_address)
+                    print("\n CALIBRATION done!")
+                    print("got data: resting_bpm = " + str(resting_bpm))
                     exercise_manager.resting_bpm = resting_bpm
 
-                elif "intensity" in msg:
+                elif "intensity" == msg:
                     # get current exercise intensity
-                    current_intensity = int(msg[-1:])
-                    print("current_intensity: " + str(current_intensity))
+                    current_intensity = int(data)
+                    # response = "RASPI: set intensity trend!"
+                    # sock.sendto(response.encode(), source_address)
+                    print("\n FINISHED EXERCISE! setting new exercise intensity")
+                    print("got data: intensity trend = " + str(current_intensity))
                     exercise_manager.exercise_intensity = current_intensity
 
                 else:

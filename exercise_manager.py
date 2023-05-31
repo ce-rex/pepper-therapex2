@@ -16,6 +16,8 @@ class ExerciseManager:
         self.experiment_timestamp = ""
         self.filename = ""
         self.data_saver = None
+        self.resting_bpm = -1
+        self.exercise_intensity = np.nan
 
         if arduino:
             # connect to Arduino for pulse data from sensor
@@ -23,8 +25,8 @@ class ExerciseManager:
         else:
             self.sensor = ArtificialPulseSensor()
 
-        self.resting_bpm = -1
-        self.exercise_intensity = np.nan
+        # self.resting_bpm = -1
+        # self.exercise_intensity = np.nan
 
     def update_data(self):
         # get new sensor data
@@ -54,6 +56,9 @@ class ExerciseManager:
         # data saving
         self.session_num = 1
         self.experiment_timestamp = time.strftime("%Y-%m-%d_%H%M", time.localtime())
+        self.resting_bpm = -1
+        self.exercise_intensity = np.nan
+
         self.new_data_saver()
 
     def new_data_saver(self):

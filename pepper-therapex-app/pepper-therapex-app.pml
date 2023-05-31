@@ -19,6 +19,8 @@
         <BehaviorDescription name="behavior" src="movements/8_punch_top" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="movements/9_punch_all" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="movements/9_punch_all2" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/go_rest" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/go_wake_up" xar="behavior.xar" />
     </BehaviorDescriptions>
     <Dialogs />
     <Resources>
