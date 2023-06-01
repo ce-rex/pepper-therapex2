@@ -23,8 +23,8 @@ if hostname == "raspberrypi":
     print("I'm running from /home/pi/.config/autostart/pepper_therapex_study.desktop")
     ip = "raspberrypi.local"  # on raspi
 else:
-    ip = "127.0.0.1"  # on laptop
-    ip = "192.168.1.102"
+    ip = "127.0.0.1"  # server on laptop, virtual robot
+    # ip = "192.168.1.102"  # server on laptop, real robot
 print("IP Address: " + ip)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -74,7 +74,7 @@ def udp_rec():
                     exercise_manager.start_new_experiment_cycle()
                     # response = "RASPI: started exercise cycle!"
                     # sock.sendto(response.encode(), source_address)
-                    print("\n got request: START exercise cycle")
+                    print("\n got request: START EXPERIMENT")
 
                 elif msg == "done":
                     # save session
@@ -88,6 +88,7 @@ def udp_rec():
                         exercise_manager.start_new_session()
                     else:
                         print("\n STOPPED experiment!")
+                        print("\n ------------------------------------------------------")
 
                 # elif "resting_bpm" in msg:
                 elif "resting_bpm" == msg:

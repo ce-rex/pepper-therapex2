@@ -18,7 +18,7 @@ class MyClass(GeneratedClass):
         pass
 
     def onInput_onStart(self):
-        self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=False)
+        self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=True)
         ex_runtime = 5
         num_exercises = 2  #6
         session_runtime = ex_runtime * num_exercises
@@ -29,13 +29,7 @@ class MyClass(GeneratedClass):
         playlist = ["/songs/blindinglights.wav", "/songs/feel_it_still.wav"]
 
         # MOTIVATIONAL PHRASES
-        self.motivational_phrases = ["Almost there!",  # 0
-                               "Keep going!",  # 1
-                               "Remember to breathe!",  # 2
-                               "You are almost done!",  # 3
-                               "You can do \\vct=10\\\\rspd=150\\ it!",  # 4
-                               "You're doing great!"  # 5
-                               ]
+
 
         # STANDBY SCREEN
         self.logger.info("waiting for touch")
@@ -68,10 +62,17 @@ class MyClass(GeneratedClass):
             # self.manager.stop_everything()
             # self.manager.update_data()
             counter = 0
+            first_exercise_of_session = True
 
             while counter < num_exercises:
                 counter = counter + 1
                 self.logger.info("This is session %s exercise %s", session, counter)
+
+                # send exercise intensity to raspi server
+                # always 1 (UP) for first exercise of session
+                if first_exercise_of_session:
+                    self.exercise_manager.data_client.call_with_data("intensity", 1)
+                    first_exercise_of_session = False
 
                 # START EXERCISE
                 self.exercise_manager.play_exercise(ex_runtime)
@@ -131,16 +132,21 @@ class MyClass(GeneratedClass):
     def say_motivational_phrases(duration):
         phrases = self.motivational_phrases
         random.shuffle(phrases)
+        said_phrase = [False, False, False]
+
         start = time.time()
 
-        if time.time() - start > duration / 3:
+        if not said_phrase[0] and time.time() - start > duration / 3:
             self.exercise_manager.robot.say(phrases.pop())
+            said_phrase[0] = True
 
-        if time.time() - start > duration * 3 / 4:
+        if not said_phrase[1] and time.time() - start > duration * 3 / 4:
             self.exercise_manager.robot.say(phrases.pop())
+            said_phrase[1] = True
 
-        if time.time() - start > duration - 10:
+        if not said_phrase[2] and time.time() - start > duration - 10:
             self.exercise_manager.robot.say(phrases.pop())
+            said_phrase[2] = True
 
 class ExerciseManager():
     def __init__(self, session, logger, behaviorAbsolutePath, virtual):
@@ -171,9 +177,59 @@ class ExerciseManager():
         # np.random.seed(0)
         # np.random.shuffle(b)
 
-    def call(self):
-        print("hellooooooooooooo" + self.test)
-        self.robot.cute_eyes()
+        # motivational phrases
+        self.midex_motivational_phrases = ["Almost there!",  # 0
+            "Keep going!",  # 1
+            "Remember to breathe!",  # 2
+            "You are almost done!",  # 3
+            "You can do \\vct=10\\\\rspd=150\\ it!",  # 4
+            "You're doing great!",  # 5
+            "Push through the burn!",  # 6
+            "Stay focused and finish strong!",  # 7
+            "Don't give up now, you're so close!",  # 8
+            "Think of how amazing you'll feel when you're done!",  # 9
+            "Keep that momentum going!",  # 10
+            "The hard work will pay off, keep pushing!",  # 11
+            "You're making progress with every move!",  # 12
+            "Your determination is inspiring!",  # 13
+            "You've got this, believe in yourself!",  # 14
+            "Challenge yourself, you're capable of more than you know!",  # 15
+            "One step at a time, you're getting closer to your goal!",  # 16
+            "You're building strength and resilience with every rep!",  # 17
+            "Keep up the fantastic effort, it's worth it!",  # 18
+            "You've got this!" #19
+            "You're a dance superstar!",
+            "You're a dance warrior!",
+            "Your moves are on fire! Keep dancing with passion and joy!",
+            "You're unstoppable! Keep that positive energy flowing!",
+            "You're doing great! Keep up the fantastic work!"
+        ]
+
+        self.postex_motivational_phrases = [
+            "Well done!",
+            "Good job!",
+            "Excellent!",
+            "Great!",
+            "Wonderful!",
+            "You did well!",
+            "Perfect!",
+            "Fantastic effort!",
+            "Bravo! Keep it up!",
+            "You're rocking it!",
+            "Incredible work!",
+            "You're unstoppable!",
+            "Marvelous performance!",
+            "Keep shining bright!",
+            "You're a superstar!",
+            "Impressive moves!",
+            "You're on fire!",
+            "Outstanding job!",
+            "You're giving it your all!",
+            "Unbelievable energy!",
+            "Amazing job!"
+        ]
+        random.shuffle(self.midex_motivational_phrases)  # shuffle and pop is not so nice, but we have a lot of phrases left
+        random.shuffle(self.postex_motivational_phrases)
 
     def update_data(self):
         # get new sensor data
@@ -252,13 +308,14 @@ class ExerciseManager():
         #self.robot.awareness_off()
 
         # log intensity trend on Raspi
-        self.data_client.call_with_data("intensity", self.intensity_trend)
+        # self.data_client.call_with_data("intensity", self.intensity_trend)
 
     def start_resting_phase(self):
             self.robot.animated_say("^mode(contextual)We are at the end of the first exercise cycle."
                                     "\\pau=300\\Before we continue, you should rest for 1 minute "
                                     "to bring your heart rate down.\\pau=300\\"
-                                    "Close your eyes. Relax \\pau=200\\and enjoy the music!^mode(disabled)")
+                                    "Close your eyes. Relax \\pau=200\\and enjoy the music!"
+                                    "^mode(disabled)")
             self.robot.go_rest()
             self.robot.resting()
             self.robot.go_wake_up()
@@ -276,13 +333,29 @@ class ExerciseManager():
         if exercise is None:
             exercise = self.exercises[self.exercise_idx]
 
+        # setup for motivational phrase
+        say_motivational_phrase = bool(random.getrandbits(1))  # random true or false
+        phrase_time = duration * (random.randint(55, 90) / 100)
+
+        # START EXERCISE
         self.robot.behaviour.runBehavior("pepper_tablet/movements/" + exercise, _async=True)
         self.logger.info("started exercise!")
-        time.sleep(duration)
+        time.sleep(phrase_time)
+
+        # OPTIONAL MOTIVATIONAL PHRASE
+        if say_motivational_phrase:
+            self.robot.say(self.midex_motivational_phrases.pop())
+        time.sleep(duration - phrase_time)
+
+        # STOP EXERCISE
         self.robot.behaviour.stopBehavior("pepper_tablet/movements/" + exercise)
 
         self.robot.behaviour.runBehavior("pepper_tablet/movements/goToStand")
         self.logger.info("stopped exercise!")
+
+        # say something motivational at the end of the exercise
+        self.robot.animated_say("^mode(contextual)" + random.choice(self.postex_motivational_phrases)
+              + "^mode(disabled)\\pau=400\\")
 
     def stop_everything(self):
         # stop robot
@@ -500,7 +573,7 @@ class Pepper():
         self.behaviour.runBehavior("pepper_tablet/movements/go_wake_up", _async=True)
 
     def resting(self):
-        if not self.virtual:
+        if not self.is_virtual:
             song_path = self.behaviorAbsolutePath + "/songs/PathOfTheWindPiano-FadeIn.wav"
             task_id = self.audio.loadFile(song_path)
             self.audio.play(task_id, 0.3, 0.0, _async=True)
@@ -580,8 +653,6 @@ class DataClient():
             self.logger.info("sent " + topic + " with data: " + str(data))
         except:
             self.logger.info("connection to raspi not available")
-
-        return response
 
     def call_for_data(self):
         # self.logger.info("asking for data")

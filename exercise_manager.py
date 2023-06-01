@@ -33,12 +33,14 @@ class ExerciseManager:
         timestamp, bpm, pulse_signal = self.sensor.get_pulse_data()
 
         if (bpm != 0) or (pulse_signal != 0):
+            intensity = self.exercise_intensity
             # print("BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse_signal))
 
             # keep track of time - BPM - pulse data  - resting BPM - exercise intensity
-            self.data_saver.save_data([timestamp, bpm, pulse_signal, self.resting_bpm, self.exercise_intensity])
+            self.data_saver.save_data([timestamp, bpm, pulse_signal, self.resting_bpm, intensity])
 
-            if self.exercise_intensity != np.nan:
+            if not np.isnan(intensity):
+                print("non nan timestamp: " + str(timestamp))
                 self.exercise_intensity = np.nan
 
             return [bpm, pulse_signal]
@@ -49,6 +51,7 @@ class ExerciseManager:
 
     def start_new_session(self):
         self.session_num += 1
+        self.exercise_intensity = np.nan
         self.new_data_saver()
 
     def start_new_experiment_cycle(self):
@@ -62,7 +65,7 @@ class ExerciseManager:
         self.new_data_saver()
 
     def new_data_saver(self):
-        print("starting session no. " + str(self.session_num))
+        print("\n STARTING session no. " + str(self.session_num))
         self.filename = "data_log/" + self.experiment_timestamp + "-session" + str(self.session_num) + ".csv"
         self.data_saver = DataSaver(self.filename, self.headers)
 
