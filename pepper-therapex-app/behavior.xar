@@ -18,18 +18,22 @@ class MyClass(GeneratedClass):
         pass
 
     def onInput_onStart(self):
-        self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=True)
-        ex_runtime = 5
+        self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=False)
+        self.logger.info(self.behaviorAbsolutePath())
+        ex_runtime = 5  #40
         num_exercises = 2  #6
         session_runtime = ex_runtime * num_exercises
-        sessions = 2
+        sessions = 2  #2
 
         # SET PLAYLIST
         #playlist = [[SONGS[10], SONGS[4]], [SONGS[10], SONGS[4]]]
-        playlist = ["/songs/blindinglights.wav", "/songs/feel_it_still.wav"]
+        playlist = [["/songs/blindinglights.wav", "/songs/feel_it_still.wav"],
+                    ["/songs/destination_calabria.wav", "/songs/rhythm_is_a_dancer.wav"]]
 
         # MOTIVATIONAL PHRASES
-
+        #self.exercise_manager.robot.play_song(playlist[1][1])
+        # time.sleep(5)
+        self.exercise_manager.robot.stop_song()
 
         # STANDBY SCREEN
         self.logger.info("waiting for touch")
@@ -44,10 +48,10 @@ class MyClass(GeneratedClass):
         # SESSIONS
         for session in range(sessions):
             # - MUSIC
-            #thread_music = threading.Thread(target=play_music, args=(playlist[session], session_runtime))
-            #thread_music.start()
+            self.thread_music = threading.Thread(target=self.play_music, args=(playlist[session], session_runtime))
+            self.thread_music.start()
 
-            # - MOTIVATIONAL PHRASES
+            # - MOTIVATIONAL PHRASES - outdated
             #thread_speech = threading.Thread(target=say_motivational_phrases, args=(session_runtime,))
             #thread_speech.start()
 
@@ -66,7 +70,7 @@ class MyClass(GeneratedClass):
 
             while counter < num_exercises:
                 counter = counter + 1
-                self.logger.info("This is session %s exercise %s", session, counter)
+                self.logger.info("This is session %s exercise %s", session+1, counter+1)
 
                 # send exercise intensity to raspi server
                 # always 1 (UP) for first exercise of session
@@ -81,14 +85,19 @@ class MyClass(GeneratedClass):
                 self.thread_monitoring_resume.clear()  # stop updating data
                 time.sleep(0.1)
                 self.exercise_manager.evaluate_bpm()
+                self.logger.info("checkpoint 1")
                 self.thread_monitoring_resume.set()  # resume updating data
 
             # STOP MUSIC AND MOTIVATIONAL SPEECH
-            #exercise_manager.stop_song()
-            #thread_music.join()
-            #thread_speech.join()
+            self.logger.info("checkpoint 2")
+            self.exercise_manager.robot.stop_song()
+            self.exercise_manager.robot.stop_song()
+            self.logger.info("checkpoint 3")
+            self.thread_music.join()
+            #thread_speech.join() - outdated
             self.exercise_running = False
             self.thread_monitoring.join()
+            self.logger.info("checkpoint 4")
             time.sleep(3)
             if session < sessions - 1:  # if it was not the last session
                 self.exercise_manager.end_session(is_last_session=False)
@@ -109,6 +118,11 @@ class MyClass(GeneratedClass):
 
     def onInput_onStop(self):
         self.onUnload() #it is recommended to reuse the clean-up as the box is stopped
+        self.exercise_manager.stop_everything()
+        self.exercise_running = False
+        self.thread_monitoring.join()
+        self.exercise_manager.robot.stop_song()
+        self.thread_music.join()
         self.onStopped() #activate the output of the box
 
     def run_data_update(self):
@@ -123,11 +137,19 @@ class MyClass(GeneratedClass):
 
         self.logger.info("stop requesting data!")
 
-    def play_music(self, playlist, duration):
+    def play_music1(self, playlist, duration):
+        self.logger.info(playlist)
         start = time.time()
         for song in playlist:
             if time.time() - start < duration:
-                self.exercise_manager.play_song(song)
+                self.logger.info("start playing song: " + song)
+                self.exercise_manager.robot.play_song(song)
+
+    def play_music(self, playlist, duration):
+        self.logger.info(playlist)
+        duration_left = self.exercise_manager.robot.play_song_with_duration(playlist[0], duration)
+        if duration_left > 0:
+            self.exercise_manager.robot.play_song_with_duration(playlist[1], duration_left)
 
     def say_motivational_phrases(duration):
         phrases = self.motivational_phrases
@@ -160,6 +182,7 @@ class ExerciseManager():
         self.data_client.call_with_data("start")
 
         self.virtual = virtual
+        self.appName = ".lastUploadedChoregrapheBehavior"
 
         self.last_bpm = 0
         self.last20_bpm = np.arange(-20, 0)
@@ -239,14 +262,15 @@ class ExerciseManager():
             # self.logger.info("BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse_signal))
 
             # self.current_intensity = np.nan  # some random number
-            self.last20_bpm = np.append(self.last20_bpm, [bpm])
-            self.last20_bpm = self.last20_bpm[1:]
+
 
             # update tablet
             if pulse_signal != 0 or pulse_signal >= 680:
                 self.robot.update_pulsewave(pulse_signal)
 
             if self.last_bpm != bpm:
+                self.last20_bpm = np.append(self.last20_bpm, [bpm])
+                self.last20_bpm = self.last20_bpm[1:]
                 # update tablet
                 self.robot.update_bpm(bpm)
 
@@ -271,7 +295,8 @@ class ExerciseManager():
         self.logger.info("CALIBRATING...")
         while self.last20_bpm_variance > 10:  # 1.5 or 2
             self.update_data()
-            #self.logger.info("BPM: " + str(self.last_bpm))
+            if self.virtual:
+                self.logger.info("BPM: " + str(self.last_bpm))
             #self.logger.info("VARIANCE: " + str(self.last20_bpm_variance))
 
         self.logger.info("EAR PIECE IS CALIBRATED!")
@@ -297,7 +322,7 @@ class ExerciseManager():
             self.robot.behaviour.stopBehavior("boot-config/animations/networkLoop")
             self.robot.behaviour.runBehavior("boot-config/animations/success", _async=True)
             time.sleep(1)  # wait so behavior can finish
-        self.robot.behaviour.runBehavior("pepper_tablet/movements/goToStand")
+        self.robot.behaviour.runBehavior(self.appName + "/movements/goToStand")
         #self.robot.awareness_on()
 
         # notify user that exercise is now starting
@@ -316,9 +341,11 @@ class ExerciseManager():
                                     "to bring your heart rate down.\\pau=300\\"
                                     "Close your eyes. Relax \\pau=200\\and enjoy the music!"
                                     "^mode(disabled)")
+            self.logger.info("start resting!")
             self.robot.go_rest()
             self.robot.resting()
             self.robot.go_wake_up()
+            self.logger.info("stop resting!")
             self.robot.animated_say("^mode(contextual)I hope you are well rested. \\pau=300\\"
                                     "Let's start another round of \\vct=105\\ exercises.")
 
@@ -335,10 +362,11 @@ class ExerciseManager():
 
         # setup for motivational phrase
         say_motivational_phrase = bool(random.getrandbits(1))  # random true or false
-        phrase_time = duration * (random.randint(55, 90) / 100)
+        phrase_time = duration * (random.randint(55, 90) / 100.0)
+        self.logger.info(phrase_time)
 
         # START EXERCISE
-        self.robot.behaviour.runBehavior("pepper_tablet/movements/" + exercise, _async=True)
+        self.robot.behaviour.runBehavior(self.appName + "/movements/" + exercise, _async=True)
         self.logger.info("started exercise!")
         time.sleep(phrase_time)
 
@@ -346,11 +374,12 @@ class ExerciseManager():
         if say_motivational_phrase:
             self.robot.say(self.midex_motivational_phrases.pop())
         time.sleep(duration - phrase_time)
+        self.logger.info(duration - phrase_time)
 
         # STOP EXERCISE
-        self.robot.behaviour.stopBehavior("pepper_tablet/movements/" + exercise)
+        self.robot.behaviour.stopBehavior(self.appName + "/movements/" + exercise)
 
-        self.robot.behaviour.runBehavior("pepper_tablet/movements/goToStand")
+        self.robot.behaviour.runBehavior(self.appName + "/movements/goToStand", _async=True)
         self.logger.info("stopped exercise!")
 
         # say something motivational at the end of the exercise
@@ -359,8 +388,10 @@ class ExerciseManager():
 
     def stop_everything(self):
         # stop robot
-        self.robot.stop_song()
         if not self.robot.is_virtual:
+            # -- deactivate external collision avoidance
+            self.motion.setExternalCollisionProtectionEnabled("Arms", True)
+            self.robot.stop_song()
             self.robot.cute_eyes()
             if self.robot.basic_awareness_on:
                 self.robot.awareness_off()
@@ -406,13 +437,13 @@ class ExerciseManager():
         # select new exercise
         if new_intensity == 1:
             # choose random easy exercise
-            self.easy_exerices.get_next_exercise()
+            self.exercise_idx = self.easy_exerices.get_next_exercise()
         elif new_intensity == 2:
             # choose random medium exercise
-            self.medium_exercises.get_next_exercise()
+            self.exercise_idx = self.medium_exercises.get_next_exercise()
         else:
             # choose random hard exercise
-            self.hard_exercises.get_next_exercise()
+            self.exercise_idx = self.hard_exercises.get_next_exercise()
 
         # log intensity trend on Raspi
         self.data_client.call_with_data("intensity", intensity_trend)
@@ -452,9 +483,9 @@ class Pepper():
         self.is_virtual = virtual
         self.session = session
 
-        appName = ".lastUploadedChoregrapheBehavior"
+        self.appName = ".lastUploadedChoregrapheBehavior"
         #appName = "pepper_tablet"
-        self.image_path = "http://198.18.0.1/apps/" + appName + "/start_training_kleiner.png"
+        self.image_path = "http://198.18.0.1/apps/" + self.appName + "/start_training_kleiner.png"
 
         # -- proxies
         self.logger = logger
@@ -465,6 +496,7 @@ class Pepper():
             self.leds = ALProxy("ALLeds")
             self.autonomous_life = ALProxy("ALAutonomousLife")
             self.audio = self.session.service("ALAudioPlayer")
+            self.audio_stopper = self.session.service("ALAudioPlayer")
             if self.basic_awareness_on:
                 self.awareness = ALProxy("ALBasicAwareness")
 
@@ -480,6 +512,9 @@ class Pepper():
         self.speech.setVolume(1.0)
 
         if not self.is_virtual:
+            # -- deactivate external collision avoidance
+            self.motion.setExternalCollisionProtectionEnabled("Arms", False)
+
             # -- set basic awareness mode
             if self.basic_awareness_on:
                 self.awareness.setEngagementMode("SemiEngaged")
@@ -491,13 +526,13 @@ class Pepper():
 
             # -- load web application
             try:
-                self.tablet.loadApplication(appName)
-                self.logger.info("Successfully set application: %s" % appName)
+                self.tablet.loadApplication(self.appName)
+                self.logger.info("Successfully set application: %s" % self.appName)
                 self.update_bpm(99)
                 self.update_pulsewave(400)
             except Exception as e:
                 print("Error was:", e)
-                print("Failed to set application: %s" % appName)
+                print("Failed to set application: %s" % self.appName)
 
             # -- enable touch listener
             connect_id = self.tablet.onTouchDown.connect(self.touch_callback)
@@ -506,22 +541,43 @@ class Pepper():
             self.waiting_for_touch = False
 
     def touch_callback(self, x, y):
-        self.waiting_for_touch = False
-        print ("tablet was touched at x: " + str(x) + "  y: " + str(y))
-        # self.tablet.hideImage()
-        self.tablet.showWebview()
+        if self.waiting_for_touch:
+            self.waiting_for_touch = False
+            print ("tablet was touched at x: " + str(x) + "  y: " + str(y))
+            # self.tablet.hideImage()
+            self.tablet.showWebview()
 
     def play_song(self, song):
-        if not self.virtual:
-            self.logger.info("playing song: " + song)
+        if not self.is_virtual:
             song_path = self.behaviorAbsolutePath + song
-            if not self.is_virtual:
-                self.audio.post.playFile(song_path, 0.6, 0.0)
+            self.logger.info("playing song: " + song_path)
+            self.audio.playFile(song_path, 0.6, 0.0)
+
+    def play_song_with_duration(self, song, duration):
+        duration_left = 0
+
+        if not self.is_virtual:
+            song_path = self.behaviorAbsolutePath + song
+            task_id = self.audio.loadFile(song_path)
+            self.audio.play(task_id, 0.3, 0.0, _async=True)
+            song_length = self.audio.getFileLength(task_id)
+            if song_length <= duration:
+                self.logger.info("playing song: " + song_path + " for seconds: " + str(song_length))
+                self.logger.info("duration >= song")
+                time.sleep(song_length)
+                duration_left = duration - song_length
+            else:
+                self.logger.info("playing song: " + song_path + " for seconds: " + str(duration))
+                self.logger.info("duration shorter than song")
+                time.sleep(duration)
+
+            self.stop_song()
+            return duration_left
 
     def stop_song(self):
         # self.audio.stopAll()
         if not self.is_virtual:
-            self.audio.stopAll()
+            self.audio_stopper.stopAll()
 
     def say(self, text):
         self.speech.say(text)
@@ -567,10 +623,10 @@ class Pepper():
         self.posture.goToPosture("Stand", 1)
 
     def go_rest(self):
-        self.behaviour.runBehavior("pepper_tablet/movements/go_rest", _async=True)
+        self.behaviour.runBehavior(self.appName + "/movements/go_rest", _async=True)
 
     def go_wake_up(self):
-        self.behaviour.runBehavior("pepper_tablet/movements/go_wake_up", _async=True)
+        self.behaviour.runBehavior(self.appName + "/movements/go_wake_up", _async=True)
 
     def resting(self):
         if not self.is_virtual:
@@ -578,9 +634,18 @@ class Pepper():
             task_id = self.audio.loadFile(song_path)
             self.audio.play(task_id, 0.3, 0.0, _async=True)
             song_length = self.audio.getFileLength(task_id)
-            self.breating(song_length - 4)
+            self.logger.info("playing resting song for seconds: " + str(song_length))
+            #self.breathing(song_length - 4)
+            self.breathing2(10)
+            self.stop_song()
 
-    def breating(self, duration):
+    def breathing2(self, duration):
+        self.behaviour.runBehavior(self.appName + "/movements/breathing", _async=True)
+        time.sleep(duration)
+        self.behaviour.stopBehavior(self.appName + "/movements/breathing")
+
+
+    def breathing(self, duration):
         start = time.time()
         fractionMaxSpeed = 0.02
 
@@ -619,18 +684,22 @@ class Pepper():
 class DataClient():
     def __init__(self, logger, behaviorAbsolutePath, virtual, data_port, arg_port):
         self.logger = logger
-        if virtual:
-            self.ip = "127.0.0.1"
-        else:
-            self.ip = "192.168.1.102" # server is on local computer
-            #self.ip = "raspberrypi.local" # server is on raspberry pi
+        #if virtual:
+        # self.ip = "127.0.0.1"
+        #else:
+        #self.ip = "192.168.1.104" # server is on local computer
+        #self.ip = "192.168.1.101"  # server is on local computer - tp link pep wifi
+        self.ip = "raspberrypi.local" # server is on raspberry pi
+        #self.ip = "192.168.1.103"  # real robot
 
         self.data_port = data_port
         self.arg_port = arg_port
 
         self.data_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        #self.data_sock.bind((self.ip, self.data_port))
         self.arg_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.arg_sock.setblocking(False) # Prevent socket from waiting for input
+        #self.arg_sock.setblocking(False) # Prevent socket from waiting for input
+        #self.arg_sock.bind((self.ip, self.arg_port))
 
     def call_for(self, msg):
         self.logger.info("asking for " + msg)
@@ -652,7 +721,7 @@ class DataClient():
             #response = self.arg_sock.recv(1024)
             self.logger.info("sent " + topic + " with data: " + str(data))
         except:
-            self.logger.info("connection to raspi not available")
+            self.logger.info(topic + ": connection to raspi not available")
 
     def call_for_data(self):
         # self.logger.info("asking for data")
@@ -666,5 +735,5 @@ class DataClient():
             #self.logger.info(data_msg)
             return bpm, pulse
         except:
-            self.logger.info("connection to raspi not available")
-            return [0, 0]]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /></Box><Link inputowner="12" indexofinput="2" outputowner="0" indexofoutput="2" /></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>
+            self.logger.info("data: connection to raspi not available")
+            return [0, 0]]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /></Box></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>

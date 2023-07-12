@@ -21,6 +21,7 @@
         <BehaviorDescription name="behavior" src="movements/9_punch_all2" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="movements/go_rest" xar="behavior.xar" />
         <BehaviorDescription name="behavior" src="movements/go_wake_up" xar="behavior.xar" />
+        <BehaviorDescription name="behavior" src="movements/breathing" xar="behavior.xar" />
     </BehaviorDescriptions>
     <Dialogs />
     <Resources>
@@ -67,6 +68,9 @@
         <File name="blindinglights" src="songs/blindinglights.wav" />
         <File name="feel_it_still" src="songs/feel_it_still.wav" />
         <File name="scare_me_mj_lazer" src="songs/scare_me_mj_lazer.wav" />
+        <File name="be_my_lover" src="songs/be_my_lover.wav" />
+        <File name="destination_calabria" src="songs/destination_calabria.wav" />
+        <File name="rhythm_is_a_dancer" src="songs/rhythm_is_a_dancer.wav" />
     </Resources>
     <Topics />
     <IgnoredPaths />

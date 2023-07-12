@@ -15,8 +15,8 @@ class PulseSensor:
 
         # check current operating system and connect to arduino serial
         if platform == "darwin":  # Mac
-            self.arduino = serial.Serial('/dev/cu.usbmodem14101', 9600, timeout=1)
-            # self.arduino = serial.Serial('/dev/cu.usbmodem14201', 9600, timeout=1)
+            # self.arduino = serial.Serial('/dev/cu.usbmodem14101', 9600, timeout=1)
+            self.arduino = serial.Serial('/dev/cu.usbmodem14201', 9600, timeout=1)
         else:  # platform == "linux":  # maybe raspi??
             self.arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
             print ("what is this system????????????????")

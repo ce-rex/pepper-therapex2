@@ -1,26 +1,53 @@
-import random
+class DataClient():
+    def __init__(self, logger, behaviorAbsolutePath, virtual, data_port, arg_port):
+        self.logger = logger
+        if virtual:
+            self.ip = "127.0.0.1"
+        else:
+            #self.ip = "192.168.1.102" # server is on local computer
+            #self.ip = "192.168.1.100"  # server is on local computer - tp link pep wifi
+            self.ip = "raspberrypi.local" # server is on raspberry pi
 
+        self.data_port = data_port
+        self.arg_port = arg_port
 
-class ExerciseList():
-    def __init__(self, first_exercise_idx, last_exercise_idx):
-        self.num_of_exercises = last_exercise_idx - first_exercise_idx + 1
-        self.index = 0
-        self.exercise_list = list(xrange(first_exercise_idx, last_exercise_idx + 1))  # ordered
-        random.shuffle(self.exercise_list)  # randomly ordered list
+        self.data_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.arg_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.arg_sock.setblocking(False) # Prevent socket from waiting for input
 
-    def get_next_exercise_intensity(self):
-        next_exercise = self.exercise_list[self.index]
-        self.index += 1
+    def call_for(self, msg):
+        self.logger.info("asking for " + msg)
+        try:
+            self.arg_sock.sendto(msg, (self.ip, self.arg_port))
+            response = self.arg_sock.recv(1024)
+            self.logger.info(response)
+        except:
+            self.logger.info("connection to raspi not available")
 
-        if self.index >= self.num_of_exercises:
-            random.shuffle(self.exercise_list)
-            self.index = 0
+        return response
 
-        return next_exercise
+    def call_with_data(self, topic, data=None):
+        #self.logger.info("asking for " + topic + " with data: " + str(data))
 
+        msg = json.dumps([topic, data])
+        try:
+            self.arg_sock.sendto(msg.encode(), (self.ip, self.arg_port))
+            #response = self.arg_sock.recv(1024)
+            self.logger.info("sent " + topic + " with data: " + str(data))
+        except:
+            self.logger.info("connection to raspi not available")
 
-easy = ExerciseList(first_exercise_idx=0, last_exercise_idx=2)
-print (easy.get_next_exercise_intensity())
-print (easy.get_next_exercise_intensity())
-print (easy.get_next_exercise_intensity())
-print (easy.get_next_exercise_intensity())
+    def call_for_data(self):
+        # self.logger.info("asking for data")
+        try:
+            self.data_sock.sendto("data", (self.ip, self.data_port))
+            response = self.data_sock.recv(1024)
+            # self.logger.info(response)
+
+            bpm, pulse = json.loads(response)
+            #data_msg = "BPM: " + str(bpm) + "  ---  pulse signal: " + str(pulse)
+            #self.logger.info(data_msg)
+            return bpm, pulse
+        except:
+            self.logger.info("connection to raspi not available")
+            return [0, 0]

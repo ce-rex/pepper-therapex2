@@ -23,8 +23,9 @@ if hostname == "raspberrypi":
     print("I'm running from /home/pi/.config/autostart/pepper_therapex_study.desktop")
     ip = "raspberrypi.local"  # on raspi
 else:
-    ip = "127.0.0.1"  # server on laptop, virtual robot
-    # ip = "192.168.1.102"  # server on laptop, real robot
+    #ip = "127.0.0.1"  # server on laptop, virtual robot
+    #ip = "192.168.1.100"  # server on laptop, real robot
+    ip = "192.168.1.101"  # server on laptop, real robot - tp link pep wifi
 print("IP Address: " + ip)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
