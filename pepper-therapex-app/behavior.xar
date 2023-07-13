@@ -20,8 +20,8 @@ class MyClass(GeneratedClass):
     def onInput_onStart(self):
         self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=False)
         self.logger.info(self.behaviorAbsolutePath())
-        ex_runtime = 5  #40
-        num_exercises = 2  #6
+        ex_runtime = 20  #40
+        num_exercises = 1  #6
         session_runtime = ex_runtime * num_exercises
         sessions = 2  #2
 
@@ -131,8 +131,11 @@ class MyClass(GeneratedClass):
         #while time.time() - start < duration:
         while self.exercise_running:
             #self.logger.info("hi" + str(time.time() - start))
+            self.logger.info("checkpoint 4.1")
             self.thread_monitoring_resume.wait()
+            self.logger.info("checkpoint 4.2")
             self.exercise_manager.update_data()
+            self.logger.info("checkpoint 4.3")
             time.sleep(0.1)
 
         self.logger.info("stop requesting data!")
@@ -390,7 +393,7 @@ class ExerciseManager():
         # stop robot
         if not self.robot.is_virtual:
             # -- deactivate external collision avoidance
-            self.motion.setExternalCollisionProtectionEnabled("Arms", True)
+            self.robot.motion.setExternalCollisionProtectionEnabled("Arms", True)
             self.robot.stop_song()
             self.robot.cute_eyes()
             if self.robot.basic_awareness_on:
@@ -623,10 +626,10 @@ class Pepper():
         self.posture.goToPosture("Stand", 1)
 
     def go_rest(self):
-        self.behaviour.runBehavior(self.appName + "/movements/go_rest", _async=True)
+        self.behaviour.runBehavior(self.appName + "/movements/go_rest")  #, _async=True)
 
     def go_wake_up(self):
-        self.behaviour.runBehavior(self.appName + "/movements/go_wake_up", _async=True)
+        self.behaviour.runBehavior(self.appName + "/movements/go_wake_up")  #, _async=True)
 
     def resting(self):
         if not self.is_virtual:
@@ -727,6 +730,7 @@ class DataClient():
         # self.logger.info("asking for data")
         try:
             self.data_sock.sendto("data", (self.ip, self.data_port))
+            self.data_sock.settimeout(5.0)
             response = self.data_sock.recv(1024)
             # self.logger.info(response)
 
