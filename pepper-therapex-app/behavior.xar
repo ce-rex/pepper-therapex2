@@ -20,8 +20,8 @@ class MyClass(GeneratedClass):
     def onInput_onStart(self):
         self.exercise_manager = ExerciseManager(self.session(), self.logger, self.behaviorAbsolutePath(), virtual=False)
         self.logger.info(self.behaviorAbsolutePath())
-        ex_runtime = 20  #40
-        num_exercises = 1  #6
+        ex_runtime = 40  #40
+        num_exercises = 6  #6
         session_runtime = ex_runtime * num_exercises
         sessions = 2  #2
 
@@ -76,6 +76,8 @@ class MyClass(GeneratedClass):
                 # always 1 (UP) for first exercise of session
                 if first_exercise_of_session:
                     self.exercise_manager.data_client.call_with_data("intensity", 1)
+                    self.exercise_manager.current_intensity = 1
+                    self.exercise_manager.exercise_idx = self.exercise_manager.easy_exerices.get_next_exercise()
                     first_exercise_of_session = False
 
                 # START EXERCISE
@@ -85,19 +87,20 @@ class MyClass(GeneratedClass):
                 self.thread_monitoring_resume.clear()  # stop updating data
                 time.sleep(0.1)
                 self.exercise_manager.evaluate_bpm()
-                self.logger.info("checkpoint 1")
+                #self.logger.info("checkpoint 1")
                 self.thread_monitoring_resume.set()  # resume updating data
 
             # STOP MUSIC AND MOTIVATIONAL SPEECH
-            self.logger.info("checkpoint 2")
-            self.exercise_manager.robot.stop_song()
-            self.exercise_manager.robot.stop_song()
-            self.logger.info("checkpoint 3")
-            self.thread_music.join()
+            #self.logger.info("checkpoint 2")
             #thread_speech.join() - outdated
             self.exercise_running = False
             self.thread_monitoring.join()
-            self.logger.info("checkpoint 4")
+            #self.logger.info("checkpoint 3")
+
+            self.exercise_manager.robot.stop_song()
+            self.exercise_manager.robot.stop_song()
+            #self.logger.info("checkpoint 4")
+            self.thread_music.join()
             time.sleep(3)
             if session < sessions - 1:  # if it was not the last session
                 self.exercise_manager.end_session(is_last_session=False)
@@ -131,11 +134,11 @@ class MyClass(GeneratedClass):
         #while time.time() - start < duration:
         while self.exercise_running:
             #self.logger.info("hi" + str(time.time() - start))
-            self.logger.info("checkpoint 4.1")
+            #self.logger.info("checkpoint 4.1")
             self.thread_monitoring_resume.wait()
-            self.logger.info("checkpoint 4.2")
+            #self.logger.info("checkpoint 4.2")
             self.exercise_manager.update_data()
-            self.logger.info("checkpoint 4.3")
+            #self.logger.info("checkpoint 4.3")
             time.sleep(0.1)
 
         self.logger.info("stop requesting data!")
@@ -323,8 +326,8 @@ class ExerciseManager():
         if not self.virtual:
             # self.logger.info("I'M TRYING TO STOP THE NETWORK LOOOP!!!!")
             self.robot.behaviour.stopBehavior("boot-config/animations/networkLoop")
-            self.robot.behaviour.runBehavior("boot-config/animations/success", _async=True)
-            time.sleep(1)  # wait so behavior can finish
+            self.robot.behaviour.runBehavior("boot-config/animations/success")
+            #time.sleep(1)  # wait so behavior can finish
         self.robot.behaviour.runBehavior(self.appName + "/movements/goToStand")
         #self.robot.awareness_on()
 
@@ -639,7 +642,7 @@ class Pepper():
             song_length = self.audio.getFileLength(task_id)
             self.logger.info("playing resting song for seconds: " + str(song_length))
             #self.breathing(song_length - 4)
-            self.breathing2(10)
+            self.breathing2(30)
             self.stop_song()
 
     def breathing2(self, duration):
@@ -740,4 +743,80 @@ class DataClient():
             return bpm, pulse
         except:
             self.logger.info("data: connection to raspi not available")
-            return [0, 0]]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /></Box></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>
+            return [0, 0]]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /></Box><Box name="Set German" id="2" localization="8" tooltip="Set the language of your robot for the current application. Your robot will speak and understand the selected language as long as your application has focus. Any following call to ALSpeechRecognition (Speech Reco. box for instance), ALTextToSpeech (Say box for instance) or ALDialog will use this language.&#x0A;" x="145" y="156"><bitmap>media/images/box/interaction/say.png</bitmap><script language="4"><content><![CDATA[class MyClass(GeneratedClass):
+    def __init__(self):
+        GeneratedClass.__init__(self, False)
+
+    def onLoad(self):
+        try:
+            self.tts = ALProxy("ALTextToSpeech")
+        except:
+            self.logger.warn("ALTextToSpeech is not available, language setting cannot be applied to speech")
+            self.tts = None
+
+        try:
+            self.asr = ALProxy("ALSpeechRecognition")
+        except:
+            self.logger.warn("ALSpeechRecognition is not available, language setting cannot be applied to recognition")
+            self.asr = None
+
+        try:
+            self.dialog = ALProxy("ALDialog")
+        except:
+            self.logger.warn("ALDialog is not available, language setting cannot be applied to dialog")
+            self.dialog = None
+
+    def onInput_onSet(self):
+        lang = self.getParameter("Language")
+        try:
+            if self.asr:
+                self.asr.setLanguage( self.getParameter("Language") )
+            if self.tts:
+                self.tts.setLanguage( self.getParameter("Language") )
+            if self.dialog:
+                self.dialog.setLanguage( self.getParameter("Language") )
+            if self.tts is None and self.asr is None and self.dialog is None:
+                raise RuntimeError("Cannot set language: neither ALTextToSpeech nor ALSpeechRecognition nor ALDialog is available.")
+            self.onReady()
+        except:
+            error = "Language " + lang + " cannot be set."
+            self.logger.warn(error)
+            self.onError(error)]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onSet" type="1" type_size="1" nature="1" inner="0" tooltip="The data is set when a signal is received on this input." id="2" /><Output name="onReady" type="1" type_size="1" nature="2" inner="0" tooltip="Signal sent when the data has been set." id="3" /><Output name="onError" type="3" type_size="1" nature="2" inner="0" tooltip="Error output:&#x0A;- triggered if the language asked cannot be set" id="4" /><Parameter name="Language" inherits_from_parent="0" content_type="3" value="German" default_value="English" custom_choice="1" tooltip="Set the language the robot speaks and understands." id="5"><Choice value="Arabic" /><Choice value="Brazilian" /><Choice value="Chinese" /><Choice value="Czech" /><Choice value="Danish" /><Choice value="Dutch" /><Choice value="English" /><Choice value="Finnish" /><Choice value="French" /><Choice value="German" /><Choice value="Greek" /><Choice value="Italian" /><Choice value="Japanese" /><Choice value="Korean" /><Choice value="MandarinTaiwan" /><Choice value="Norwegian" /><Choice value="Polish" /><Choice value="Portuguese" /><Choice value="Russian" /><Choice value="Spanish" /><Choice value="Swedish" /><Choice value="Turkish" /></Parameter><Resource name="Speech" type="Lock" timeout="0" /></Box><Box name="Set English" id="1" localization="8" tooltip="Set the language of your robot for the current application. Your robot will speak and understand the selected language as long as your application has focus. Any following call to ALSpeechRecognition (Speech Reco. box for instance), ALTextToSpeech (Say box for instance) or ALDialog will use this language.&#x0A;" x="144" y="261"><bitmap>media/images/box/interaction/say.png</bitmap><script language="4"><content><![CDATA[class MyClass(GeneratedClass):
+    def __init__(self):
+        GeneratedClass.__init__(self, False)
+
+    def onLoad(self):
+        try:
+            self.tts = ALProxy("ALTextToSpeech")
+        except:
+            self.logger.warn("ALTextToSpeech is not available, language setting cannot be applied to speech")
+            self.tts = None
+
+        try:
+            self.asr = ALProxy("ALSpeechRecognition")
+        except:
+            self.logger.warn("ALSpeechRecognition is not available, language setting cannot be applied to recognition")
+            self.asr = None
+
+        try:
+            self.dialog = ALProxy("ALDialog")
+        except:
+            self.logger.warn("ALDialog is not available, language setting cannot be applied to dialog")
+            self.dialog = None
+
+    def onInput_onSet(self):
+        lang = self.getParameter("Language")
+        try:
+            if self.asr:
+                self.asr.setLanguage( self.getParameter("Language") )
+            if self.tts:
+                self.tts.setLanguage( self.getParameter("Language") )
+            if self.dialog:
+                self.dialog.setLanguage( self.getParameter("Language") )
+            if self.tts is None and self.asr is None and self.dialog is None:
+                raise RuntimeError("Cannot set language: neither ALTextToSpeech nor ALSpeechRecognition nor ALDialog is available.")
+            self.onReady()
+        except:
+            error = "Language " + lang + " cannot be set."
+            self.logger.warn(error)
+            self.onError(error)]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onSet" type="1" type_size="1" nature="1" inner="0" tooltip="The data is set when a signal is received on this input." id="2" /><Output name="onReady" type="1" type_size="1" nature="2" inner="0" tooltip="Signal sent when the data has been set." id="3" /><Output name="onError" type="3" type_size="1" nature="2" inner="0" tooltip="Error output:&#x0A;- triggered if the language asked cannot be set" id="4" /><Parameter name="Language" inherits_from_parent="0" content_type="3" value="English" default_value="English" custom_choice="1" tooltip="Set the language the robot speaks and understands." id="5"><Choice value="Arabic" /><Choice value="Brazilian" /><Choice value="Chinese" /><Choice value="Czech" /><Choice value="Danish" /><Choice value="Dutch" /><Choice value="English" /><Choice value="Finnish" /><Choice value="French" /><Choice value="German" /><Choice value="Greek" /><Choice value="Italian" /><Choice value="Japanese" /><Choice value="Korean" /><Choice value="MandarinTaiwan" /><Choice value="Norwegian" /><Choice value="Polish" /><Choice value="Portuguese" /><Choice value="Russian" /><Choice value="Spanish" /><Choice value="Swedish" /><Choice value="Turkish" /></Parameter><Resource name="Speech" type="Lock" timeout="0" /></Box></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>
